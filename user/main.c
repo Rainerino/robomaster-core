@@ -1,12 +1,12 @@
 /**
   ****************************(C) COPYRIGHT 2016 DJI****************************
   * @file       main.c/h
-  * @brief      stm32初始化以及开始任务freeRTOS。h文件定义相关全局宏定义以及
-  *             typedef 一些常用数据类型
+  * @brief      stm32鲁玫脢录禄炉脪脭录掳驴陋脢录脠脦脦帽freeRTOS隆拢h脦脛录镁露篓脪氓脧脿鹿脴脠芦戮脰潞锚露篓脪氓脪脭录掳
+  *             typedef 脪禄脨漏鲁拢脫脙脢媒戮脻脌脿脨脥
   * @note
   * @history
   *  Version    Date            Author          Modification
-  *  V1.0.0     Dec-26-2018     RM              1. 完成
+  *  V1.0.0     Dec-26-2018     RM              1. 脥锚鲁脡
   *
   @verbatim
   ==============================================================================
@@ -14,7 +14,6 @@
   @endverbatim
   ****************************(C) COPYRIGHT 2016 DJI****************************
   */
-  //JOSH wants random comments
 #include "main.h"
 
 #include "stm32f4xx.h"
@@ -49,51 +48,58 @@ int main(void)
     delay_ms(100);
     startTast();
     vTaskStartScheduler();
+		
     while (1)
     {
         ;
     }
 }
 
-//四个24v 输出 依次开启 间隔 709us
+
+
+//脣脛赂枚24v 脢盲鲁枚 脪脌麓脦驴陋脝么 录盲赂么 709us
 #define POWER_CTRL_ONE_BY_ONE_TIME 709
+
+extern void USART_setup(void);
 
 void BSP_init(void)
 {
-    //中断组 4
+    //脰脨露脧脳茅 4
     NVIC_PriorityGroupConfig(NVIC_PriorityGroup_4);
-    //初始化滴答时钟
+    //鲁玫脢录禄炉碌脦麓冒脢卤脰脫
     delay_init(configTICK_RATE_HZ);
-    //流水灯，红绿灯初始化
+    //脕梅脣庐碌脝拢卢潞矛脗脤碌脝鲁玫脢录禄炉
     led_configuration();
-    //stm32 板载温度传感器初始化
+    //stm32 掳氓脭脴脦脗露脠麓芦赂脨脝梅鲁玫脢录禄炉
     temperature_ADC_init();
 #if GIMBAL_MOTOR_6020_CAN_LOSE_SLOVE
-    //stm32 随机数发生器初始化
+    //stm32 脣忙禄煤脢媒路垄脡煤脝梅鲁玫脢录禄炉
     RNG_init();
 #endif
-    //24输出控制口 初始化
+    //24脢盲鲁枚驴脴脰脝驴脷 鲁玫脢录禄炉
     power_ctrl_configuration();
-    //摩擦轮电机PWM初始化
+    //脛娄虏脕脗脰碌莽禄煤PWM鲁玫脢录禄炉
     fric_PWM_configuration();
-    //蜂鸣器初始化
+    //路盲脙霉脝梅鲁玫脢录禄炉
     buzzer_init(30000, 90);
-    //激光IO初始化
+    //录陇鹿芒IO鲁玫脢录禄炉
     laser_configuration();
-    //定时器6 初始化
+    //露篓脢卤脝梅6 鲁玫脢录禄炉
     TIM6_Init(60000, 90);
-    //CAN接口初始化
+    //CAN陆脫驴脷鲁玫脢录禄炉
     CAN1_mode_init(CAN_SJW_1tq, CAN_BS2_2tq, CAN_BS1_6tq, 5, CAN_Mode_Normal);
     CAN2_mode_init(CAN_SJW_1tq, CAN_BS2_2tq, CAN_BS1_6tq, 5, CAN_Mode_Normal);
 
-    //24v 输出 依次上电
+    //24v 脢盲鲁枚 脪脌麓脦脡脧碌莽
     for (uint8_t i = POWER1_CTRL_SWITCH; i < POWER4_CTRL_SWITCH + 1; i++)
     {
         power_ctrl_on(i);
         delay_us(POWER_CTRL_ONE_BY_ONE_TIME);
     }
-    //遥控器初始化
+    //脪拢驴脴脝梅鲁玫脢录禄炉
     remote_control_init();
-    //flash读取函数，把校准值放回对应参数
+    //flash露脕脠隆潞炉脢媒拢卢掳脩脨拢脳录脰碌路脜禄脴露脭脫娄虏脦脢媒
     cali_param_init();
+		
+		  USART_setup();
 }
