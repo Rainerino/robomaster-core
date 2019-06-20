@@ -31,6 +31,11 @@
 #include "stm32f4xx_it.h"
 #include "main.h"
 
+#include "FreeRTOS.h"
+
+#include "led.h"
+#include "task.h"
+
 /** @addtogroup Template_Project
   * @{
   */
@@ -169,3 +174,31 @@ void SysTick_Handler(void)
 
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
+
+extern void USART_puts(USART_TypeDef *USARTx, volatile char *str);
+
+// interrupt request handler for all USART6 interrupts
+// is called every time 1 byte is received
+void USART6_IRQHandler(void)
+{
+	// make sure USART6 was intended to be called for this interrupt
+	if(USART_GetITStatus(USART6, USART_IT_RXNE) != RESET) {
+		
+		uint16_t data = USART_ReceiveData(USART6);
+		
+		// testing
+		char str[2] = {0};
+		str[0] = data;
+		str[1] = data + 1;
+		// end testing
+		
+		// could do this to be safe, but don't need to
+		// USART_ClearITPendingBit(USART6, USART_IT_RXNE);
+		
+		while(USART_GetFlagStatus(USART6, USART_FLAG_TC) == RESET);
+		// USART_SendData(USART6, data);
+		
+		USART_puts(USART6, str);
+		
+	}
+}
