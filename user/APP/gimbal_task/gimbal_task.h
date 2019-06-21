@@ -86,6 +86,9 @@
 //yaw，pitch角度与遥控器输入比例
 #define Yaw_RC_SEN -0.000005f
 #define Pitch_RC_SEN -0.000006f //0.005
+// yaw pitch mapping for position based control
+#define Yaw_RC_SCALE -0.00238f
+#define Pitch_RC_SCALE -0.000793f
 //yaw,pitch角度和鼠标输入的比例
 #define Yaw_Mouse_Sen 0.00005f
 #define Pitch_Mouse_Sen 0.00015f

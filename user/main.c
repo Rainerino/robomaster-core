@@ -14,7 +14,7 @@
   @endverbatim
   ****************************(C) COPYRIGHT 2016 DJI****************************
   */
-  //JOSH wants random comments
+
 #include "main.h"
 
 #include "stm32f4xx.h"
@@ -77,7 +77,7 @@ void BSP_init(void)
     //摩擦轮电机PWM初始化
     fric_PWM_configuration();
     //蜂鸣器初始化
-    buzzer_init(30000, 90);
+    //buzzer_init(30000, 90);
     //激光IO初始化
     laser_configuration();
     //定时器6 初始化

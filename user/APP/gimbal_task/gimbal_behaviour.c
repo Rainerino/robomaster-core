@@ -1,10 +1,12 @@
 /**
   ****************************(C) COPYRIGHT 2016 DJI****************************
   * @file       gimbal_task.c/h
-  * @brief      完成云台控制任务，由于云台使用陀螺仪解算出的角度，其范围在（-pi,pi）
-  *             故而设置目标角度均为范围，存在许多对角度计算的函数。云台主要分为2种
-  *             状态，陀螺仪控制状态是利用板载陀螺仪解算的姿态角进行控制，编码器控制
-  *             状态是通过电机反馈的编码值控制的校准，此外还有校准状态，停止状态等。
+  * @brief      Task controls gimbal. Since gimbal uses many derived angles from the
+  *				gyro (between pi and -pi), therefore all targets are a range of angles;
+  *				Many functions are calculations related to angles.
+  *				The gimbal has 2 main modes: gyro control mode where control is based 
+  *				the angles provided by gyro; encoder mode where control is based on 
+  *				encoder feedback of the motors; also there are calibration mode and stopped mode.
   * @note       
   * @history
   *  Version    Date            Author          Modification
@@ -24,6 +26,8 @@
 #include "Detect_Task.h"
 
 #include "user_lib.h"
+#include "stdio.h"
+#include "stdlib.h"
 
 ////云台校准蜂鸣器响声
 //#define GIMBALWarnBuzzerOn() buzzer_on(31, 20000)
@@ -94,6 +98,7 @@ static void gimbal_behavour_set(Gimbal_Control_t *gimbal_mode_set);
   * @retval         返回空
   */
 static void gimbal_zero_force_control(fp32 *yaw, fp32 *pitch, Gimbal_Control_t *gimbal_control_set);
+		
 /**
   * @brief          云台初始化控制，电机是陀螺仪角度控制，云台先抬起pitch轴，后旋转yaw轴
   * @author         RM
@@ -131,6 +136,7 @@ static void gimbal_absolute_angle_control(fp32 *yaw, fp32 *pitch, Gimbal_Control
   * @retval         返回空
   */
 static void gimbal_relative_angle_control(fp32 *yaw, fp32 *pitch, Gimbal_Control_t *gimbal_control_set);
+
 /**
   * @brief          云台进入遥控器无输入控制，电机是相对角度控制，
   * @author         RM
@@ -141,6 +147,9 @@ static void gimbal_relative_angle_control(fp32 *yaw, fp32 *pitch, Gimbal_Control
   */
 static void gimbal_motionless_control(fp32 *yaw, fp32 *pitch, Gimbal_Control_t *gimbal_control_set);
 
+// Position based control
+static void gimbal_position_based_control (fp32 *yaw, fp32 *pitch, Gimbal_Control_t *gimbal_control_set);
+
 //云台行为状态机
 static gimbal_behaviour_e gimbal_behaviour = GIMBAL_ZERO_FORCE;
 
@@ -150,7 +159,7 @@ static gimbal_behaviour_e gimbal_behaviour = GIMBAL_ZERO_FORCE;
   * @param[in]      云台数据指针
   * @retval         返回空
   */
-
+	
 gimbal_motor_mode_e test = GIMBAL_MOTOR_ENCONDE;
 void gimbal_behaviour_mode_set(Gimbal_Control_t *gimbal_mode_set)
 {
@@ -188,6 +197,11 @@ void gimbal_behaviour_mode_set(Gimbal_Control_t *gimbal_mode_set)
         gimbal_mode_set->gimbal_pitch_motor.gimbal_motor_mode = GIMBAL_MOTOR_ENCONDE;
     }
     else if (gimbal_behaviour == GIMBAL_MOTIONLESS)
+    {
+        gimbal_mode_set->gimbal_yaw_motor.gimbal_motor_mode = GIMBAL_MOTOR_ENCONDE;
+        gimbal_mode_set->gimbal_pitch_motor.gimbal_motor_mode = GIMBAL_MOTOR_ENCONDE;
+    }
+		else if (gimbal_behaviour == GIMBAL_POSITION_BASED)
     {
         gimbal_mode_set->gimbal_yaw_motor.gimbal_motor_mode = GIMBAL_MOTOR_ENCONDE;
         gimbal_mode_set->gimbal_pitch_motor.gimbal_motor_mode = GIMBAL_MOTOR_ENCONDE;
@@ -244,6 +258,11 @@ void gimbal_behaviour_control_set(fp32 *add_yaw, fp32 *add_pitch, Gimbal_Control
     {
         gimbal_motionless_control(&rc_add_yaw, &rc_add_pit, gimbal_control_set);
     }
+		else if (gimbal_behaviour == GIMBAL_POSITION_BASED)
+		{
+				gimbal_position_based_control(&rc_add_yaw, &rc_add_pit, gimbal_control_set);
+		}
+		
     //将控制增加量赋值
     *add_yaw = rc_add_yaw;
     *add_pitch = rc_add_pit;
@@ -258,7 +277,7 @@ void gimbal_behaviour_control_set(fp32 *add_yaw, fp32 *add_pitch, Gimbal_Control
 
 bool_t gimbal_cmd_to_chassis_stop(void)
 {
-    if (gimbal_behaviour == GIMBAL_INIT || gimbal_behaviour == GIMBAL_CALI || gimbal_behaviour == GIMBAL_MOTIONLESS || gimbal_behaviour == GIMBAL_ZERO_FORCE)
+    if (gimbal_behaviour == GIMBAL_INIT || gimbal_behaviour == GIMBAL_CALI || gimbal_behaviour == GIMBAL_MOTIONLESS) //|| gimbal_behaviour == GIMBAL_ZERO_FORCE)
     {
         return 1;
     }
@@ -351,15 +370,15 @@ static void gimbal_behavour_set(Gimbal_Control_t *gimbal_mode_set)
     //开关控制 云台状态
     if (switch_is_down(gimbal_mode_set->gimbal_rc_ctrl->rc.s[ModeChannel]))
     {
-        gimbal_behaviour = GIMBAL_ZERO_FORCE;
+        gimbal_behaviour = GIMBAL_ZERO_FORCE; //NO FORCE
     }
     else if (switch_is_mid(gimbal_mode_set->gimbal_rc_ctrl->rc.s[ModeChannel]))
     {
         gimbal_behaviour = GIMBAL_RELATIVE_ANGLE;
     }
     else if (switch_is_up(gimbal_mode_set->gimbal_rc_ctrl->rc.s[ModeChannel]))
-    {
-        gimbal_behaviour = GIMBAL_ABSOLUTE_ANGLE;
+    { 
+				gimbal_behaviour = GIMBAL_POSITION_BASED; 
     }
 
     if( toe_is_error(DBUSTOE))
@@ -372,6 +391,11 @@ static void gimbal_behavour_set(Gimbal_Control_t *gimbal_mode_set)
     {
         static gimbal_behaviour_e last_gimbal_behaviour = GIMBAL_ZERO_FORCE;
         if (last_gimbal_behaviour == GIMBAL_ZERO_FORCE && gimbal_behaviour != GIMBAL_ZERO_FORCE)
+        {
+            gimbal_behaviour = GIMBAL_INIT;
+        }
+				// Ensures the gimbal initialized to mid before entering postion-based setting
+				else if (last_gimbal_behaviour != GIMBAL_POSITION_BASED && last_gimbal_behaviour != GIMBAL_INIT && gimbal_behaviour == GIMBAL_POSITION_BASED)
         {
             gimbal_behaviour = GIMBAL_INIT;
         }
@@ -406,6 +430,30 @@ static void gimbal_behavour_set(Gimbal_Control_t *gimbal_mode_set)
 
 
 }
+
+// Position based control on joystick
+static void gimbal_position_based_control (fp32 *yaw, fp32 *pitch, Gimbal_Control_t *gimbal_control_set)
+{
+    if (yaw == NULL || pitch == NULL || gimbal_control_set == NULL)
+    {
+        return;
+    }
+
+    {
+        static fp32 yaw_target_angle, pitch_target_angle;
+			
+				// Take reading from RC and convert bewteen channel reading and yaw angle
+				yaw_target_angle = gimbal_control_set->gimbal_rc_ctrl->rc.ch[YawChannel] * Yaw_RC_SCALE; 
+				// Take reading from RC and convert bewteen channel reading and pitch angle
+				pitch_target_angle = gimbal_control_set->gimbal_rc_ctrl->rc.ch[PitchChannel] * Pitch_RC_SCALE; 
+				
+				// set yaw and pitch to the designated angles
+				*yaw = (yaw_target_angle - gimbal_control_set->gimbal_yaw_motor.relative_angle) * TurnSpeed; 
+				*pitch = (pitch_target_angle - gimbal_control_set->gimbal_pitch_motor.relative_angle) * TurnSpeed;
+			
+    }
+}
+
 
 /**
   * @brief          云台无力控制，在这个模式下发送的yaw，pitch 是电机控制原始值，云台电机发送can零控制量，使得云台无力
