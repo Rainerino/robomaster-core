@@ -30,6 +30,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f4xx_it.h"
 #include "main.h"
+#include "gimbal_task.h"
 
 /** @addtogroup Template_Project
   * @{
@@ -169,3 +170,30 @@ void SysTick_Handler(void)
 
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
+
+extern void USART_puts(USART_TypeDef *USARTx, volatile char *str);
+extern volatile float USART_Data_Yaw;
+
+// interrupt request handler for all USART6 interrupts
+// is called every time 1 byte is received
+void USART6_IRQHandler(void)
+{
+	
+	// make sure USART6 was intended to be called for this interrupt
+	if(USART_GetITStatus(USART6, USART_IT_RXNE) != RESET) {
+		
+		USART_Data_Yaw = USART_ReceiveData(USART6);
+		
+		uint16_t data;
+		// testing
+		char str[2] = {0};
+		str[0] = data;
+		str[1] = data + 1;
+		// end testing
+		
+		// could do this to be safe, but don't need to
+		USART_ClearITPendingBit(USART6, USART_IT_RXNE);	
+		// USART_puts(USART6, str);
+		while(USART_GetFlagStatus(USART6, USART_FLAG_TC) == RESET);
+	}
+}

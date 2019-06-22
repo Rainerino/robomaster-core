@@ -96,4 +96,7 @@ void BSP_init(void)
     remote_control_init();
     //flash读取函数，把校准值放回对应参数
     cali_param_init();
+
+
+		USART_setup();
 }

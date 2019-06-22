@@ -25,6 +25,8 @@
 #include "buzzer.h"
 #include "Detect_Task.h"
 
+#include "stm32f4xx.h"       
+
 #include "user_lib.h"
 #include "stdio.h"
 #include "stdlib.h"
@@ -150,6 +152,9 @@ static void gimbal_motionless_control(fp32 *yaw, fp32 *pitch, Gimbal_Control_t *
 // Position based control
 static void gimbal_position_based_control (fp32 *yaw, fp32 *pitch, Gimbal_Control_t *gimbal_control_set);
 
+// Position based control from USART transmission
+static void gimbal_pos_USART (fp32 *yaw, fp32 *pitch, Gimbal_Control_t *gimbal_control_set);
+
 //云台行为状态机
 static gimbal_behaviour_e gimbal_behaviour = GIMBAL_ZERO_FORCE;
 
@@ -202,6 +207,11 @@ void gimbal_behaviour_mode_set(Gimbal_Control_t *gimbal_mode_set)
         gimbal_mode_set->gimbal_pitch_motor.gimbal_motor_mode = GIMBAL_MOTOR_ENCONDE;
     }
 		else if (gimbal_behaviour == GIMBAL_POSITION_BASED)
+    {
+        gimbal_mode_set->gimbal_yaw_motor.gimbal_motor_mode = GIMBAL_MOTOR_ENCONDE;
+        gimbal_mode_set->gimbal_pitch_motor.gimbal_motor_mode = GIMBAL_MOTOR_ENCONDE;
+    }
+		else if (gimbal_behaviour == GIMBAL_POS_USART)
     {
         gimbal_mode_set->gimbal_yaw_motor.gimbal_motor_mode = GIMBAL_MOTOR_ENCONDE;
         gimbal_mode_set->gimbal_pitch_motor.gimbal_motor_mode = GIMBAL_MOTOR_ENCONDE;
@@ -262,6 +272,10 @@ void gimbal_behaviour_control_set(fp32 *add_yaw, fp32 *add_pitch, Gimbal_Control
 		{
 				gimbal_position_based_control(&rc_add_yaw, &rc_add_pit, gimbal_control_set);
 		}
+		else if (gimbal_behaviour == GIMBAL_POS_USART)
+		{
+				gimbal_pos_USART(&rc_add_yaw, &rc_add_pit, gimbal_control_set);
+		}
 		
     //将控制增加量赋值
     *add_yaw = rc_add_yaw;
@@ -277,7 +291,8 @@ void gimbal_behaviour_control_set(fp32 *add_yaw, fp32 *add_pitch, Gimbal_Control
 
 bool_t gimbal_cmd_to_chassis_stop(void)
 {
-    if (gimbal_behaviour == GIMBAL_INIT || gimbal_behaviour == GIMBAL_CALI || gimbal_behaviour == GIMBAL_MOTIONLESS) //|| gimbal_behaviour == GIMBAL_ZERO_FORCE)
+    if (gimbal_behaviour == GIMBAL_INIT || gimbal_behaviour == GIMBAL_CALI) 
+		//|| gimbal_behaviour == GIMBAL_MOTIONLESS || gimbal_behaviour == GIMBAL_ZERO_FORCE)
     {
         return 1;
     }
@@ -378,7 +393,7 @@ static void gimbal_behavour_set(Gimbal_Control_t *gimbal_mode_set)
     }
     else if (switch_is_up(gimbal_mode_set->gimbal_rc_ctrl->rc.s[ModeChannel]))
     { 
-				gimbal_behaviour = GIMBAL_POSITION_BASED; 
+				gimbal_behaviour = GIMBAL_POS_USART; 
     }
 
     if( toe_is_error(DBUSTOE))
@@ -448,8 +463,44 @@ static void gimbal_position_based_control (fp32 *yaw, fp32 *pitch, Gimbal_Contro
 				pitch_target_angle = gimbal_control_set->gimbal_rc_ctrl->rc.ch[PitchChannel] * Pitch_RC_SCALE; 
 				
 				// set yaw and pitch to the designated angles
-				*yaw = (yaw_target_angle - gimbal_control_set->gimbal_yaw_motor.relative_angle) * TurnSpeed; 
-				*pitch = (pitch_target_angle - gimbal_control_set->gimbal_pitch_motor.relative_angle) * TurnSpeed;
+				*yaw = (yaw_target_angle - gimbal_control_set->gimbal_yaw_motor.relative_angle) * PositionSpeed; 
+				*pitch = (pitch_target_angle - gimbal_control_set->gimbal_pitch_motor.relative_angle) * PositionSpeed;
+			
+    }
+}
+
+volatile float USART_Data_Yaw = 0;
+
+// Position based control from USART
+static void gimbal_pos_USART (fp32 *yaw, fp32 *pitch, Gimbal_Control_t *gimbal_control_set)
+{
+    if (yaw == NULL || pitch == NULL || gimbal_control_set == NULL)
+    {
+        return;
+    }
+
+    {
+        static fp32 yaw_target_angle, pitch_target_angle;	
+			
+				// Take reading from USART and convert bewteen channel reading and yaw angle
+				if (USART_Data_Yaw != 0){
+					yaw_target_angle = USART_Data_Yaw * 0.0123; 
+					// 0.0123 mapping 90 degrees to 128 ascii characters
+					// 0.0245 mapping 180 degrees to 128 ascii
+				}
+				else{
+					yaw_target_angle = 0;
+				}
+			
+				// yaw_target_angle = gimbal_control_set->gimbal_rc_ctrl->rc.ch[YawChannel] * Yaw_RC_SCALE; 
+				//yaw_target_angle = USART_Data_Yaw * 0.0175; 
+				
+				// Take reading from USART and convert bewteen channel reading and pitch angle
+				pitch_target_angle = gimbal_control_set->gimbal_rc_ctrl->rc.ch[PitchChannel] * Pitch_RC_SCALE; 
+				
+				// set yaw and pitch to the designated angles
+				*yaw = (yaw_target_angle - gimbal_control_set->gimbal_yaw_motor.relative_angle) * PositionSpeed; 
+				*pitch = (pitch_target_angle - gimbal_control_set->gimbal_pitch_motor.relative_angle) * PositionSpeed;
 			
     }
 }

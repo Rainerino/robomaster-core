@@ -79,6 +79,7 @@
 #define TurnKeyBoard KEY_PRESSED_OFFSET_F
 //掉头云台速度
 #define TurnSpeed 0.04f
+#define PositionSpeed 0.02f
 //测试按键尚未使用
 #define TestKeyBoard KEY_PRESSED_OFFSET_R
 //遥控器输入死区，因为遥控器存在差异，摇杆在中间，其值不一定为零
@@ -214,6 +215,7 @@ typedef struct
     Gimbal_Motor_t gimbal_pitch_motor;
     Gimbal_Cali_t gimbal_cali;
 } Gimbal_Control_t;
+
 
 extern const Gimbal_Motor_t *get_yaw_motor_point(void);
 extern const Gimbal_Motor_t *get_pitch_motor_point(void);
