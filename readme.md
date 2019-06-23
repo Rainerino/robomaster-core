@@ -1,15 +1,13 @@
-该工程是RM2019机甲大师比赛外赠步兵机器人的嵌入式程序，使用的芯片型号为stm32f427IIH6，使用st公司标准库。
-目录：
-CMSIS：内核相关的文件
-FWLIB：标准库文件
-Project：工程文件
-startup:芯片启动文件
-user：用户编写的相关文件，主要编写的文件都在这个文件夹下
+Our guide to get started: https://docs.google.com/document/d/19cvIZilfux3r4_W7IBOViRhD_JSUb53r_CtSJ3eYy1E/edit?usp=sharing
 
-user/main.c\h :main函数所在的文件
-user/AHRS：陀螺仪驱动以及姿态解算
-user/APP：freeRTOS任务
-user/DSP：DSP库
-user/FreeRTOS:移植的freeRTOS文件
-user/hardware：硬件层
-user/user_lib：编写的数学函数
+This project runs on Keil IDE. It is modified from the DJI official standard robot code.
+
+Changes:
+
+___Gimbal Branch___
+
+__2019.06.20__ Added gimbal position based control. The yaw/pitch channels from the joystick are mapped to yaw/pitch positions of the gimbal. Gimbal initializes to center in this mode of control, and gimbal stops at the position.
+
+__2019.06.22__ Receives data (ascii characters or int) from USART, then turns the gimbal to the designated position.
+
+__2019.06.23__ USART incorporated with basic vision tracking. Gimbal turns at constant speed until tracked object is centered.
