@@ -469,7 +469,7 @@ static void gimbal_position_based_control (fp32 *yaw, fp32 *pitch, Gimbal_Contro
     }
 }
 
-volatile float USART_Data_Yaw = 0;
+volatile char USART_Data[2] = {0};
 
 // Position based control from USART
 static void gimbal_pos_USART (fp32 *yaw, fp32 *pitch, Gimbal_Control_t *gimbal_control_set)
@@ -481,23 +481,34 @@ static void gimbal_pos_USART (fp32 *yaw, fp32 *pitch, Gimbal_Control_t *gimbal_c
 
     {
         static fp32 yaw_target_angle, pitch_target_angle;	
+				char USART_Data_Yaw, USART_Data_Pitch;
 			
-				// Take reading from USART and convert bewteen channel reading and yaw angle
-				if (USART_Data_Yaw != 0){
-					yaw_target_angle = USART_Data_Yaw * 0.0123; 
-					// 0.0123 mapping 90 degrees to 128 ascii characters
-					// 0.0245 mapping 180 degrees to 128 ascii
+				USART_Data_Yaw = USART_Data[0];
+				USART_Data_Pitch = USART_Data[1];
+				
+				// Take reading from USART and convert bewteen acquired data cases and yaw angle
+				if (USART_Data_Yaw == '1'){
+					yaw_target_angle =  gimbal_control_set->gimbal_yaw_motor.relative_angle - 1 * 0.0174;
+				}
+				else if (USART_Data_Yaw == '3'){
+					yaw_target_angle = gimbal_control_set->gimbal_yaw_motor.relative_angle + 1 * 0.0174;
 				}
 				else{
-					yaw_target_angle = 0;
+					yaw_target_angle = gimbal_control_set->gimbal_yaw_motor.relative_angle;
 				}
+				
+				// Take reading from USART and convert bewteen acquired data cases and pitch angle
+				if (USART_Data_Pitch == '1'){
+					pitch_target_angle =  gimbal_control_set->gimbal_pitch_motor.relative_angle + 1 * Deg_to_Rad;
+				}
+				else if (USART_Data_Pitch == '3'){
+					pitch_target_angle = gimbal_control_set->gimbal_pitch_motor.relative_angle - 1 * Deg_to_Rad;
+				}
+				else{
+					pitch_target_angle = gimbal_control_set->gimbal_pitch_motor.relative_angle;
+				}
+		
 			
-				// yaw_target_angle = gimbal_control_set->gimbal_rc_ctrl->rc.ch[YawChannel] * Yaw_RC_SCALE; 
-				//yaw_target_angle = USART_Data_Yaw * 0.0175; 
-				
-				// Take reading from USART and convert bewteen channel reading and pitch angle
-				pitch_target_angle = gimbal_control_set->gimbal_rc_ctrl->rc.ch[PitchChannel] * Pitch_RC_SCALE; 
-				
 				// set yaw and pitch to the designated angles
 				*yaw = (yaw_target_angle - gimbal_control_set->gimbal_yaw_motor.relative_angle) * PositionSpeed; 
 				*pitch = (pitch_target_angle - gimbal_control_set->gimbal_pitch_motor.relative_angle) * PositionSpeed;

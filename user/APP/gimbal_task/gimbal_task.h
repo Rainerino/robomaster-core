@@ -84,6 +84,7 @@
 #define TestKeyBoard KEY_PRESSED_OFFSET_R
 //遥控器输入死区，因为遥控器存在差异，摇杆在中间，其值不一定为零
 #define RC_deadband 10
+
 //yaw，pitch角度与遥控器输入比例
 #define Yaw_RC_SEN -0.000005f
 #define Pitch_RC_SEN -0.000006f //0.005
@@ -98,6 +99,9 @@
 #define Pitch_Encoder_Sen 0.01f
 //云台控制周期
 #define GIMBAL_CONTROL_TIME 1
+
+//Degrees to radian conversion
+#define Deg_to_Rad 0.0174
 
 //云台测试模式 宏定义 0 为不使用测试模式
 #define GIMBAL_TEST_MODE 0

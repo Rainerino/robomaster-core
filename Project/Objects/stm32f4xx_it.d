@@ -38,3 +38,8 @@
 .\objects\stm32f4xx_it.o: ..\FWLIB\inc\stm32f4xx_fmc.h
 .\objects\stm32f4xx_it.o: ..\FWLIB\inc\stm32f4xx_sai.h
 .\objects\stm32f4xx_it.o: ..\User\main.h
+.\objects\stm32f4xx_it.o: ..\User\APP\Gimbal_Task\gimbal_task.h
+.\objects\stm32f4xx_it.o: ..\User\APP\CAN_Receive\CAN_Receive.h
+.\objects\stm32f4xx_it.o: ..\User\APP\pid\pid.h
+.\objects\stm32f4xx_it.o: ..\User\APP\Remote_Control\remote_control.h
+.\objects\stm32f4xx_it.o: ..\User\hardware\RC\rc.h

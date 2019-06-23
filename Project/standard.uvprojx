@@ -858,6 +858,11 @@
               <FilePath>..\user\APP\INS_task\INS_task.c</FilePath>
             </File>
             <File>
+              <FileName>shoot.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\user\APP\shoot\shoot.c</FilePath>
+            </File>
+            <File>
               <FileName>pid.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\user\APP\pid\pid.c</FilePath>
@@ -866,11 +871,6 @@
               <FileName>remote_control.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\user\APP\remote_control\remote_control.c</FilePath>
-            </File>
-            <File>
-              <FileName>shoot.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\user\APP\shoot\shoot.c</FilePath>
             </File>
             <File>
               <FileName>start_task.c</FileName>
