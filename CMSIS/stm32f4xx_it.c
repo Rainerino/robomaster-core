@@ -172,9 +172,7 @@ void SysTick_Handler(void)
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
 
 extern void USART_puts(USART_TypeDef *USARTx, volatile char *str);
-extern volatile char USART_Data[];
-
-int counter = 0;
+extern volatile int USART_Data;
 
 // interrupt request handler for all USART6 interrupts
 // is called every time 1 byte is received
@@ -182,16 +180,6 @@ void USART6_IRQHandler(void)
 {
 	// make sure USART6 was intended to be called for this interrupt
 	if(USART_GetITStatus(USART6, USART_IT_RXNE) != RESET) {
-		
-		USART_Data[counter] = USART_ReceiveData(USART6);
-		if (counter == 0){
-			counter = 1;
-		}			
-		else{
-			counter = 0;
-		}
-	
-		while(USART_GetFlagStatus(USART6, USART_FLAG_TC) == RESET);
-		//USART_puts(USART6, USART_Data);
+		USART_Data = USART_ReceiveData(USART6);
 	}
 }
