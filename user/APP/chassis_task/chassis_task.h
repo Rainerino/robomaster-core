@@ -2,7 +2,7 @@
   ****************************(C) COPYRIGHT 2016 DJI****************************
   * @file       chassis.c/h
   * @brief      完成底盘控制任务。
-  * @note       
+  * @note
   * @history
   *  Version    Date            Author          Modification
   *  V1.0.0     Dec-26-2018     RM              1. 完成
@@ -110,6 +110,7 @@ typedef enum
   CHASSIS_VECTOR_FOLLOW_CHASSIS_YAW,
   CHASSIS_VECTOR_NO_FOLLOW_YAW,
   CHASSIS_VECTOR_RAW,
+  CHASSIS_VECTOR_SWIRL,
 
   //  CHASSIS_AUTO,
   //  CHASSIS_FOLLOW_YAW,
@@ -149,7 +150,7 @@ typedef struct
   fp32 vy_set;                     //底盘设定速度 左右方向 左为正，单位 m/s  		set left/right speed
   fp32 wz_set;                     //底盘设定旋转角速度，逆时针为正 单位 rad/s  set chassis rotational speed
   fp32 chassis_relative_angle;     //底盘与云台的相对角度，单位 rad/s  					angle between chassis and gimbal, unit rad/s
-  fp32 chassis_relative_angle_set; //设置相对云台控制角度  										
+  fp32 chassis_relative_angle_set; //设置相对云台控制角度
   fp32 chassis_yaw_set;
 
   fp32 vx_max_speed;  //前进方向最大速度 单位m/s

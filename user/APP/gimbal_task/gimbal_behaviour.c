@@ -5,7 +5,7 @@
   *             故而设置目标角度均为范围，存在许多对角度计算的函数。云台主要分为2种
   *             状态，陀螺仪控制状态是利用板载陀螺仪解算的姿态角进行控制，编码器控制
   *             状态是通过电机反馈的编码值控制的校准，此外还有校准状态，停止状态等。
-  * @note       
+  * @note
   * @history
   *  Version    Date            Author          Modification
   *  V1.0.0     Dec-26-2018     RM              1. 完成
@@ -258,7 +258,7 @@ void gimbal_behaviour_control_set(fp32 *add_yaw, fp32 *add_pitch, Gimbal_Control
 
 bool_t gimbal_cmd_to_chassis_stop(void)
 {
-    if (gimbal_behaviour == GIMBAL_INIT || gimbal_behaviour == GIMBAL_CALI || gimbal_behaviour == GIMBAL_MOTIONLESS || gimbal_behaviour == GIMBAL_ZERO_FORCE)
+    if (gimbal_behaviour == GIMBAL_INIT || gimbal_behaviour == GIMBAL_CALI ) //|| gimbal_behaviour == GIMBAL_MOTIONLESS || gimbal_behaviour == GIMBAL_ZERO_FORCE)
     {
         return 1;
     }

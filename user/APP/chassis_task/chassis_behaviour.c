@@ -1,8 +1,8 @@
 /**
   ****************************(C) COPYRIGHT 2016 DJI****************************
   * @file       chassis_behaviour.c/h
-  * @brief      完成底盘行为任务。
-  * @note       
+  * @brief      Complete the chassis behavior task.
+  * @note
   * @history
   *  Version    Date            Author          Modification
   *  V1.0.0     Dec-26-2018     RM              1. 完成
@@ -19,77 +19,102 @@
 #include "arm_math.h"
 
 #include "gimbal_behaviour.h"
+#include "delay.h"
+
+#include "FreeRTOSConfig.h"
+#include "FreeRTOS.h"
+#include "task.h"
+
 
 /**
-  * @brief          底盘无力的行为状态机下，底盘模式是raw，故而设定值会直接发送到can总线上故而将设定值都设置为0
+  * @brief          Under the weak state of the chassis, the chassis mode is raw, so the
+                    set value will be sent directly to the can bus, so the set value is set to 0.
   * @author         RM
-  * @param[in]      vx_set前进的速度 设定值将直接发送到can总线上
-  * @param[in]      vy_set左右的速度 设定值将直接发送到can总线上
-  * @param[in]      wz_set旋转的速度 设定值将直接发送到can总线上
-  * @param[in]      chassis_move_rc_to_vector底盘数据
-  * @retval         返回空
+  * @param[in]      Vx_set forward speed set value will be sent directly to the can bus
+  * @param[in]      The speed setpoint around vy_set will be sent directly to the can bus.
+  * @param[in]      The speed of the wz_set rotation will be sent directly to the can bus.
+  * @param[in]      Chassis_move_rc_to_vector chassis data
+  * @retval         Return empty
   */
 static void chassis_zero_force_control(fp32 *vx_can_set, fp32 *vy_can_set, fp32 *wz_can_set, chassis_move_t *chassis_move_rc_to_vector);
 
 /**
-  * @brief          底盘不移动的行为状态机下，底盘模式是不跟随角度，
+  * @brief          Under the behavior state machine where the chassis does not move, the chassis
+                    mode does not follow the angle.
   * @author         RM
-  * @param[in]      vx_set前进的速度
-  * @param[in]      vy_set左右的速度
-  * @param[in]      wz_set旋转的速度，旋转速度是控制底盘的底盘角速度
-  * @param[in]      chassis_move_rc_to_vector底盘数据
-  * @retval         返回空
+  * @param[in]      Vx_set forward speed
+  * @param[in]      Velocity around vy_set
+  * @param[in]      Wz_set rotation speed, the rotation speed is the chassis angular speed of the control chassis
+  * @param[in]      Chassis_move_rc_to_vector chassis data
+  * @retval         Return empty
   */
 
 static void chassis_no_move_control(fp32 *vx_set, fp32 *vy_set, fp32 *wz_set, chassis_move_t *chassis_move_rc_to_vector);
 
 /**
-  * @brief          底盘跟随云台的行为状态机下，底盘模式是跟随云台角度，底盘旋转速度会根据角度差计算底盘旋转的角速度
+  * @brief          The chassis follows the behavior of the pan/tilt. The chassis mode follows the pan/tilt angle.
+                    The chassis rotation speed calculates the angular velocity of the chassis rotation based on
+                    the angle difference.
   * @author         RM
-  * @param[in]      vx_set前进的速度
-  * @param[in]      vy_set左右的速度
-  * @param[in]      angle_set底盘与云台控制到的相对角度
-  * @param[in]      chassis_move_rc_to_vector底盘数据
-  * @retval         返回空
+  * @param[in]      Vx_set forward speed
+  * @param[in]      Velocity around vy_set
+  * @param[in]      The angle between the angle_set chassis and the pan/tilt
+  * @param[in]      Chassis_move_rc_to_vector chassis data
+  * @retval         Return empty
   */
 
 static void chassis_infantry_follow_gimbal_yaw_control(fp32 *vx_set, fp32 *vy_set, fp32 *angle_set, chassis_move_t *chassis_move_rc_to_vector);
 
 /**
-  * @brief          底盘跟随底盘yaw的行为状态机下，底盘模式是跟随底盘角度，底盘旋转速度会根据角度差计算底盘旋转的角速度
+  * @brief          The chassis follows the behavior of the chassis yaw, the chassis mode is to follow the chassis angle,
+                    the chassis rotation speed will calculate the angular velocity of the chassis rotation according to
+                    the angle difference
   * @author         RM
-  * @param[in]      vx_set前进的速度
-  * @param[in]      vy_set左右的速度
-  * @param[in]      angle_set底盘设置的yaw，范围 -PI到PI
-  * @param[in]      chassis_move_rc_to_vector底盘数据
-  * @retval         返回空
+  * @param[in]      Vx_set forward speed
+  * @param[in]      Velocity around vy_set
+  * @param[in]      Angle_set chassis setting yaw, range -PI to PI
+  * @param[in]      Chassis_move_rc_to_vector chassis data
+  * @retval         Return empty
   */
 
 static void chassis_engineer_follow_chassis_yaw_control(fp32 *vx_set, fp32 *vy_set, fp32 *angle_set, chassis_move_t *chassis_move_rc_to_vector);
 
 /**
-  * @brief          底盘不跟随角度的行为状态机下，底盘模式是不跟随角度，底盘旋转速度由参数直接设定
+  * @brief          The chassis does not follow the angle of the behavior state machine, the chassis mode is not
+                    following the angle, the chassis rotation speed is directly set by the parameters
   * @author         RM
-  * @param[in]      vx_set前进的速度
-  * @param[in]      vy_set左右的速度
-  * @param[in]      wz_set底盘设置的旋转速度
-  * @param[in]      chassis_move_rc_to_vector底盘数据
-  * @retval         返回空
+  * @param[in]      Vx_set forward speed
+  * @param[in]      Velocity around vy_set
+  * @param[in]      Wz_set chassis set rotation speed
+  * @param[in]      Chassis_move_rc_to_vector chassis data
+  * @retval         Return empty
   */
 static void chassis_no_follow_yaw_control(fp32 *vx_set, fp32 *vy_set, fp32 *wz_set, chassis_move_t *chassis_move_rc_to_vector);
 
 /**
-  * @brief          底盘开环的行为状态机下，底盘模式是raw原生状态，故而设定值会直接发送到can总线上
+  * @brief          Under the behavior of the chassis open loop, the chassis mode is the raw native state,
+                    so the set value will be sent directly to the can bus.
   * @author         RM
-  * @param[in]      vx_set前进的速度
-  * @param[in]      vy_set左右的速度
-  * @param[in]      wz_set底盘设置的旋转速度
-  * @param[in]      chassis_move_rc_to_vector底盘数据
-  * @retval         返回空
+  * @param[in]      Vx_set forward speed
+  * @param[in]      Velocity around vy_set
+  * @param[in]      Wz_set chassis set rotation speed
+  * @param[in]      Chassis_move_rc_to_vector chassis data
+  * @retval         Return empty
   */
 static void chassis_open_set_control(fp32 *vx_set, fp32 *vy_set, fp32 *wz_set, chassis_move_t *chassis_move_rc_to_vector);
 
-//底盘行为状态机
+/**
+  * @brief          Do a swirly periodic pivot
+  * @author         RM
+  * @param[in]      Vx_set forward speed
+  * @param[in]      Velocity around vy_set
+  * @param[in]      Wz_set chassis set rotation speed
+  * @param[in]      Chassis_move_rc_to_vector chassis data
+  * @retval         Return empty
+  */
+static void chassis_swirl_motion(fp32 *vx_set, fp32 *vy_set, fp32 *wz_set, chassis_move_t *chassis_move_rc_to_vector);
+
+//Chassis behavior state machine
 static chassis_behaviour_e chassis_behaviour_mode = CHASSIS_ZERO_FORCE;
 
 void chassis_behaviour_mode_set(chassis_move_t *chassis_move_mode)
@@ -99,56 +124,72 @@ void chassis_behaviour_mode_set(chassis_move_t *chassis_move_mode)
         return;
     }
 
-    //遥控器设置行为模式
+    //Remote control setting behavior mode
     if (switch_is_mid(chassis_move_mode->chassis_RC->rc.s[MODE_CHANNEL]))
     {
         chassis_behaviour_mode = CHASSIS_NO_FOLLOW_YAW;
     }
     else if (switch_is_down(chassis_move_mode->chassis_RC->rc.s[MODE_CHANNEL]))
     {
-        chassis_behaviour_mode = CHASSIS_NO_MOVE;
+        chassis_behaviour_mode = CHASSIS_SWIRL;
     }
     else if (switch_is_up(chassis_move_mode->chassis_RC->rc.s[MODE_CHANNEL]))
     {
         chassis_behaviour_mode = CHASSIS_INFANTRY_FOLLOW_GIMBAL_YAW;
     }
 
-    //云台进入某些状态的时候，底盘保持不动
+    //When the pan/tilt enters certain states, the chassis remains stationary.
     if (gimbal_cmd_to_chassis_stop())
     {
         chassis_behaviour_mode = CHASSIS_NO_MOVE;
     }
 
-    //根据行为状态机选择底盘状态机
+    //Select chassis state machine based on behavioral state machine
     if (chassis_behaviour_mode == CHASSIS_ZERO_FORCE)
     {
 
-        chassis_move_mode->chassis_mode = CHASSIS_VECTOR_RAW; //当行为是底盘无力，则设置底盘状态机为 raw，原生状态机。
+        chassis_move_mode->chassis_mode = CHASSIS_VECTOR_RAW; //When the behavior is that the chassis is weak,
+                                                              //set the chassis state machine to raw, native state machine.
     }
     else if (chassis_behaviour_mode == CHASSIS_NO_MOVE)
     {
 
-        chassis_move_mode->chassis_mode = CHASSIS_VECTOR_NO_FOLLOW_YAW; //当行为是底盘不移动，则设置底盘状态机为 底盘不跟随角度 状态机。
+        chassis_move_mode->chassis_mode = CHASSIS_VECTOR_NO_FOLLOW_YAW; //When the behavior is that the chassis does not move,
+                                                                        //set the chassis state machine to the chassis without
+                                                                        //following the angle state machine.
     }
     else if (chassis_behaviour_mode == CHASSIS_INFANTRY_FOLLOW_GIMBAL_YAW)
     {
 
-        chassis_move_mode->chassis_mode = CHASSIS_VECTOR_FOLLOW_GIMBAL_YAW; //当行为是正常步兵跟随云台，则设置底盘状态机为 底盘跟随云台角度 状态机。
+        chassis_move_mode->chassis_mode = CHASSIS_VECTOR_FOLLOW_GIMBAL_YAW; //When the behavior is that the normal infantry
+                                                                            //follows the pan/tilt, the chassis state machine
+                                                                            //is set to follow the pan/tilt angle state machine for the chassis.
     }
     else if (chassis_behaviour_mode == CHASSIS_ENGINEER_FOLLOW_CHASSIS_YAW)
     {
 
-        chassis_move_mode->chassis_mode = CHASSIS_VECTOR_FOLLOW_CHASSIS_YAW; //当行为是工程跟随底盘角度，则设置底盘状态机为 底盘跟随底盘角度 状态机。
+        chassis_move_mode->chassis_mode = CHASSIS_VECTOR_FOLLOW_CHASSIS_YAW; //When the behavior is that the engineering follows the
+                                                                             //chassis angle, the chassis state machine is set to the
+                                                                             //chassis following the chassis angle state machine.
     }
     else if (chassis_behaviour_mode == CHASSIS_NO_FOLLOW_YAW)
     {
 
-        chassis_move_mode->chassis_mode = CHASSIS_VECTOR_NO_FOLLOW_YAW; //当行为是底盘不跟随角度，则设置底盘状态机为 底盘不跟随角度 状态机。
+        chassis_move_mode->chassis_mode = CHASSIS_VECTOR_NO_FOLLOW_YAW; //When the behavior is that the chassis does not follow the angle,
+                                                                        //then the chassis state machine is set to the chassis without
+                                                                        //following the angle state machine.
     }
     else if (chassis_behaviour_mode == CHASSIS_OPEN)
     {
 
-        chassis_move_mode->chassis_mode = CHASSIS_VECTOR_RAW; //当行为是底盘开环，则设置底盘状态机为 底盘原生raw 状态机。
+        chassis_move_mode->chassis_mode = CHASSIS_VECTOR_RAW; //When the behavior is the chassis open loop, set the chassis state machine
+                                                              //to the chassis native raw state machine.
+    }
+    else if (chassis_behaviour_mode == CHASSIS_SWIRL)
+    {
+
+        chassis_move_mode->chassis_mode = CHASSIS_VECTOR_SWIRL; //When the behavior is the chassis open loop, set the chassis state machine
+                                                                        //to the chassis native raw state machine.
     }
 }
 void chassis_behaviour_control_set(fp32 *vx_set, fp32 *vy_set, fp32 *angle_set, chassis_move_t *chassis_move_rc_to_vector)
@@ -183,15 +224,20 @@ void chassis_behaviour_control_set(fp32 *vx_set, fp32 *vy_set, fp32 *angle_set, 
     {
         chassis_open_set_control(vx_set, vy_set, angle_set, chassis_move_rc_to_vector);
     }
+    else if (chassis_behaviour_mode == CHASSIS_SWIRL)
+    {
+        chassis_swirl_motion(vx_set, vy_set, angle_set, chassis_move_rc_to_vector);
+    }
 }
 /**
-  * @brief          底盘无力的行为状态机下，底盘模式是raw，故而设定值会直接发送到can总线上故而将设定值都设置为0
+  * @brief          Under the weak state of the chassis, the chassis mode is raw, so the set value will be sent
+                    directly to the can bus, so the set value is set to 0.
   * @author         RM
-  * @param[in]      vx_set前进的速度 设定值将直接发送到can总线上
-  * @param[in]      vy_set左右的速度 设定值将直接发送到can总线上
-  * @param[in]      wz_set旋转的速度 设定值将直接发送到can总线上
-  * @param[in]      chassis_move_rc_to_vector底盘数据
-  * @retval         返回空
+  * @param[in]      Vx_set forward speed set value will be sent directly to the can bus
+  * @param[in]      The speed setpoint around vy_set will be sent directly to the can bus.
+  * @param[in]      The speed of the wz_set rotation will be sent directly to the can bus.
+  * @param[in]      Chassis_move_rc_to_vector chassis data
+  * @retval         Return empty
   */
 
 static void chassis_zero_force_control(fp32 *vx_can_set, fp32 *vy_can_set, fp32 *wz_can_set, chassis_move_t *chassis_move_rc_to_vector)
@@ -200,18 +246,19 @@ static void chassis_zero_force_control(fp32 *vx_can_set, fp32 *vy_can_set, fp32 
     {
         return;
     }
-    *vx_can_set = 0.0f;
+    *vx_can_set = 0.0f; // The f just explicitly casts it as a floating point number
     *vy_can_set = 0.0f;
     *wz_can_set = 0.0f;
 }
 /**
-  * @brief          底盘不移动的行为状态机下，底盘模式是不跟随角度，
+  * @brief          Under the behavior state machine where the chassis does not move, the chassis mode does not
+                    follow the angle.
   * @author         RM
-  * @param[in]      vx_set前进的速度
-  * @param[in]      vy_set左右的速度
-  * @param[in]      wz_set旋转的速度，旋转速度是控制底盘的底盘角速度
-  * @param[in]      chassis_move_rc_to_vector底盘数据
-  * @retval         返回空
+  * @param[in]      Vx_set forward speed
+  * @param[in]      Velocity around vy_set (moves sideways)
+  * @param[in]      Wz_set rotation speed, the rotation speed is the chassis angular speed of the control chassis
+  * @param[in]      Chassis_move_rc_to_vector chassis data
+  * @retval         Return empty
   */
 
 static void chassis_no_move_control(fp32 *vx_set, fp32 *vy_set, fp32 *wz_set, chassis_move_t *chassis_move_rc_to_vector)
@@ -226,13 +273,14 @@ static void chassis_no_move_control(fp32 *vx_set, fp32 *vy_set, fp32 *wz_set, ch
 }
 
 /**
-  * @brief          底盘跟随云台的行为状态机下，底盘模式是跟随云台角度，底盘旋转速度会根据角度差计算底盘旋转的角速度
+  * @brief          The chassis follows the behavior of the pan/tilt. The chassis mode follows the pan/tilt angle. The chassis rotation
+                    speed calculates the angular velocity of the chassis rotation based on the angle difference.
   * @author         RM
-  * @param[in]      vx_set前进的速度
-  * @param[in]      vy_set左右的速度
-  * @param[in]      angle_set底盘与云台控制到的相对角度
-  * @param[in]      chassis_move_rc_to_vector底盘数据
-  * @retval         返回空
+  * @param[in]      Vx_set forward speed
+  * @param[in]      Velocity around vy_set
+  * @param[in]      The angle between the angle_set chassis and the pan/tilt
+  * @param[in]      Chassis_move_rc_to_vector chassis data
+  * @retval         Return empty
   */
 
 static void chassis_infantry_follow_gimbal_yaw_control(fp32 *vx_set, fp32 *vy_set, fp32 *angle_set, chassis_move_t *chassis_move_rc_to_vector)
@@ -244,20 +292,20 @@ static void chassis_infantry_follow_gimbal_yaw_control(fp32 *vx_set, fp32 *vy_se
 
     chassis_rc_to_control_vector(vx_set, vy_set, chassis_move_rc_to_vector);
 
-    //摇摆角度是利用sin函数生成，swing_time 是sin函数的输入值
+    //The swing angle is generated using the sin function, and the swing_time is the input value of the sin function.
     static fp32 swing_time = 0.0f;
-    //swing_time 是计算出来的角度
+    //Swing_time is the calculated angle
     static fp32 swing_angle = 0.0f;
-    //max_angle 是sin函数的幅值
+    //Max_angle is the magnitude of the sin function
     static fp32 max_angle = SWING_NO_MOVE_ANGLE;
-    //add_time 是摇摆角度改变的快慢，最大越快
+    //Add_time is the speed at which the swing angle changes, the faster the maximum
     static fp32 const add_time = PI / 250.0f;
-    //使能摇摆标志位
+    //Enable swing flag
     static uint8_t swing_flag = 0;
 
-    //计算遥控器的原始输入信号
+    //Calculate the original input signal of the remote control
 
-    //判断是否要摇摆
+    //Determine if you want to swing
     if (chassis_move_rc_to_vector->chassis_RC->key.v & SWING_KEY)
     {
         if (swing_flag == 0)
@@ -271,7 +319,7 @@ static void chassis_infantry_follow_gimbal_yaw_control(fp32 *vx_set, fp32 *vy_se
         swing_flag = 0;
     }
 
-    //判断键盘输入是不是在控制底盘运动，底盘在运动减小摇摆角度
+    //Determine if the keyboard input is in control of the chassis movement, and the chassis reduces the swing angle during motion.
     if (chassis_move_rc_to_vector->chassis_RC->key.v & CHASSIS_FRONT_KEY || chassis_move_rc_to_vector->chassis_RC->key.v & CHASSIS_BACK_KEY ||
         chassis_move_rc_to_vector->chassis_RC->key.v & CHASSIS_LEFT_KEY || chassis_move_rc_to_vector->chassis_RC->key.v & CHASSIS_RIGHT_KEY)
     {
@@ -281,7 +329,7 @@ static void chassis_infantry_follow_gimbal_yaw_control(fp32 *vx_set, fp32 *vy_se
     {
         max_angle = SWING_NO_MOVE_ANGLE;
     }
-    //sin函数生成控制角度
+    //Sin function generates control angle
     if (swing_flag)
     {
         swing_angle = max_angle * arm_sin_f32(swing_time);
@@ -291,7 +339,7 @@ static void chassis_infantry_follow_gimbal_yaw_control(fp32 *vx_set, fp32 *vy_se
     {
         swing_angle = 0.0f;
     }
-    //sin函数不超过2pi
+    //The sin function does not exceed 2pi
     if (swing_time > 2 * PI)
     {
         swing_time -= 2 * PI;
@@ -301,13 +349,15 @@ static void chassis_infantry_follow_gimbal_yaw_control(fp32 *vx_set, fp32 *vy_se
 }
 
 /**
-  * @brief          底盘跟随底盘yaw的行为状态机下，底盘模式是跟随底盘角度，底盘旋转速度会根据角度差计算底盘旋转的角速度
+  * @brief          The chassis follows the behavior of the chassis yaw, the chassis mode is to follow the chassis angle,
+                    the chassis rotation speed will calculate the angular velocity of the chassis rotation according
+                    to the angle difference
   * @author         RM
-  * @param[in]      vx_set前进的速度
-  * @param[in]      vy_set左右的速度
-  * @param[in]      angle_set底盘设置的yaw，范围 -PI到PI
-  * @param[in]      chassis_move_rc_to_vector底盘数据
-  * @retval         返回空
+  * @param[in]      Vx_set forward speed
+  * @param[in]      Velocity around vy_set
+  * @param[in]      Angle_set chassis setting yaw, range -PI to PI
+  * @param[in]      Chassis_move_rc_to_vector chassis data
+  * @retval         Return empty
   */
 
 static void chassis_engineer_follow_chassis_yaw_control(fp32 *vx_set, fp32 *vy_set, fp32 *angle_set, chassis_move_t *chassis_move_rc_to_vector)
@@ -323,13 +373,14 @@ static void chassis_engineer_follow_chassis_yaw_control(fp32 *vx_set, fp32 *vy_s
 }
 
 /**
-  * @brief          底盘不跟随角度的行为状态机下，底盘模式是不跟随角度，底盘旋转速度由参数直接设定
+  * @brief          The chassis does not follow the angle of the behavior state machine, the chassis mode is
+                    not following the angle, the chassis rotation speed is directly set by the parameters
   * @author         RM
-  * @param[in]      vx_set前进的速度
-  * @param[in]      vy_set左右的速度
-  * @param[in]      wz_set底盘设置的旋转速度
-  * @param[in]      chassis_move_rc_to_vector底盘数据
-  * @retval         返回空
+  * @param[in]      Vx_set forward speed
+  * @param[in]      Velocity around vy_set
+  * @param[in]      Wz_set chassis set rotation speed
+  * @param[in]      Chassis_move_rc_to_vector chassis data
+  * @retval         Return empty
   */
 
 static void chassis_no_follow_yaw_control(fp32 *vx_set, fp32 *vy_set, fp32 *wz_set, chassis_move_t *chassis_move_rc_to_vector)
@@ -344,13 +395,14 @@ static void chassis_no_follow_yaw_control(fp32 *vx_set, fp32 *vy_set, fp32 *wz_s
 }
 
 /**
-  * @brief          底盘开环的行为状态机下，底盘模式是raw原生状态，故而设定值会直接发送到can总线上
+  * @brief          Under the behavior of the chassis open loop, the chassis mode is the raw native state,
+                    so the set value will be sent directly to the can bus.
   * @author         RM
-  * @param[in]      vx_set前进的速度
-  * @param[in]      vy_set左右的速度
-  * @param[in]      wz_set底盘设置的旋转速度
-  * @param[in]      chassis_move_rc_to_vector底盘数据
-  * @retval         返回空
+  * @param[in]      Vx_set forward speed
+  * @param[in]      Velocity around vy_set
+  * @param[in]      Wz_set chassis set rotation speed
+  * @param[in]      Chassis_move_rc_to_vector chassis data
+  * @retval         Return empty
   */
 
 static void chassis_open_set_control(fp32 *vx_set, fp32 *vy_set, fp32 *wz_set, chassis_move_t *chassis_move_rc_to_vector)
@@ -365,3 +417,25 @@ static void chassis_open_set_control(fp32 *vx_set, fp32 *vy_set, fp32 *wz_set, c
     *wz_set = -chassis_move_rc_to_vector->chassis_RC->rc.ch[CHASSIS_WZ_CHANNEL] * CHASSIS_OPEN_RC_SCALE;
     return;
 }
+
+/**
+  * @brief          Under the behavior of the chassis open loop, the chassis mode is the raw native state,
+                    so the set value will be sent directly to the can bus.
+  * @author         RM
+  * @param[in]      Vx_set forward speed
+  * @param[in]      Velocity around vy_set
+  * @param[in]      Wz_set chassis set rotation speed
+  * @param[in]      Chassis_move_rc_to_vector chassis data
+  * @retval         Return empty
+  */
+ static void chassis_swirl_motion(fp32 *vx_set, fp32 *vy_set, fp32 *wz_set, chassis_move_t *chassis_move_rc_to_vector)
+ {
+     if (vx_set == NULL || vy_set == NULL || wz_set == NULL || chassis_move_rc_to_vector == NULL)
+     {
+         return;
+     }
+
+     *vx_set = 0.0f;
+     *vy_set = 0.0f;
+     *wz_set = 0.0f;
+ }
