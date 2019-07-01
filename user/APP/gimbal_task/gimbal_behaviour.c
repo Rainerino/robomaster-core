@@ -481,33 +481,16 @@ static void gimbal_pos_USART (fp32 *yaw, fp32 *pitch, Gimbal_Control_t *gimbal_c
 
     {
         static fp32 yaw_target_angle, pitch_target_angle;	
-				char USART_Data_Yaw, USART_Data_Pitch;
+				int USART_Data_Yaw, USART_Data_Pitch;			
 			
-				USART_Data_Yaw = USART_Data / 10;		// x, tens digit		23
-				USART_Data_Pitch = USART_Data % 10;	// y, unit digit		xy
+				USART_Data_Yaw = USART_Data / 100 - 50;		// x
+				USART_Data_Pitch = USART_Data % 100 - 50;	// y
 				
-				// Take reading from USART and convert bewteen acquired data cases and yaw angle
-				if (USART_Data_Yaw == 1){
-					yaw_target_angle =  gimbal_control_set->gimbal_yaw_motor.relative_angle - 1 * 0.0174;
-				}
-				else if (USART_Data_Yaw == 3){
-					yaw_target_angle = gimbal_control_set->gimbal_yaw_motor.relative_angle + 1 * 0.0174;
-				}
-				else{
-					yaw_target_angle = gimbal_control_set->gimbal_yaw_motor.relative_angle;
-				}
+				// Take reading from USART and convert bewteen to target yaw angle
+				yaw_target_angle = gimbal_control_set->gimbal_yaw_motor.relative_angle - USART_Data_Yaw * Deg_to_Rad / 100;
 				
 				// Take reading from USART and convert bewteen acquired data cases and pitch angle
-				if (USART_Data_Pitch == 1){
-					pitch_target_angle =  gimbal_control_set->gimbal_pitch_motor.relative_angle + 1 * Deg_to_Rad;
-				}
-				else if (USART_Data_Pitch == 3){
-					pitch_target_angle = gimbal_control_set->gimbal_pitch_motor.relative_angle - 1 * Deg_to_Rad;
-				}
-				else{
-					pitch_target_angle = gimbal_control_set->gimbal_pitch_motor.relative_angle;
-				}
-		
+				pitch_target_angle = gimbal_control_set->gimbal_pitch_motor.relative_angle + USART_Data_Pitch * Deg_to_Rad / 300 ;
 			
 				// set yaw and pitch to the designated angles
 				*yaw = (yaw_target_angle - gimbal_control_set->gimbal_yaw_motor.relative_angle) * PositionSpeed; 

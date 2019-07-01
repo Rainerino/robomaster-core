@@ -222,6 +222,25 @@ int16_t shoot_control_loop(void)
     return shoot_CAN_Set_Current;
 }
 
+extern volatile int USART_Data;
+
+// Checks whether USART communicates to shoot
+bool_t USART_cmd_shoot(void)
+{
+    int USART_data_yaw = USART_Data / 100;
+		int USART_data_pitch = USART_Data % 100;
+	
+		if ( switch_is_mid(shoot_rc->rc.s[GIMBAL_ModeChannel]) && USART_data_yaw < 55 && USART_data_yaw > 45 && USART_data_pitch < 55 && USART_data_pitch > 45)
+    {
+       return 1;
+    }
+    else
+    {
+       return 0;
+    }
+}
+
+
 /**
   * @brief          射击状态机设置，遥控器上拨一次开启，再上拨关闭，下拨1次发射1颗，一直处在下，则持续发射，用于3min准备时间清理子弹
   * @author         RM
@@ -232,14 +251,14 @@ static void Shoot_Set_Mode(void)
 {
     static int8_t last_s = RC_SW_UP;
 
-    //上拨判断， 一次开启，再次关闭
+    // When switch is up, first time is start, second time is stop
     if ((switch_is_up(shoot_rc->rc.s[Shoot_RC_Channel]) && !switch_is_up(last_s) && shoot_mode == SHOOT_STOP))
     {
-        shoot_mode = SHOOT_READY;
+        shoot_mode = SHOOT_READY; // Start shooting motors, but not fast enough to launch
     }
     else if ((switch_is_up(shoot_rc->rc.s[Shoot_RC_Channel]) && !switch_is_up(last_s) && shoot_mode != SHOOT_STOP) || (shoot_rc->key.v & SHOOT_OFF_KEYBOARD))
     {
-        shoot_mode = SHOOT_STOP;
+        shoot_mode = SHOOT_STOP; // Stop shooting motors completely
     }
 
     //处于中档， 可以使用键盘开启摩擦轮
@@ -247,24 +266,32 @@ static void Shoot_Set_Mode(void)
     {
         shoot_mode = SHOOT_READY;
     }
-    //处于中档， 可以使用键盘关闭摩擦轮
+		//处于中档， 可以使用键盘关闭摩擦轮
     else if (switch_is_mid(shoot_rc->rc.s[Shoot_RC_Channel]) && (shoot_rc->key.v & SHOOT_OFF_KEYBOARD) && shoot_mode == SHOOT_READY)
     {
         shoot_mode = SHOOT_STOP;
     }
+		
+		
+		// Allows for USART commanding shoot when switch is in middle position
+		if (switch_is_mid(shoot_rc->rc.s[Shoot_RC_Channel]) && USART_cmd_shoot()) {
+				shoot_mode = SHOOT_BULLET;
+				trigger_motor.last_butter_count = trigger_motor.BulletShootCnt;
+		}
 
-    //如果云台状态是 无力状态，就关闭射击
+    // Stop shooting if gimbal zero force
     if (gimbal_cmd_to_shoot_stop())
     {
         shoot_mode = SHOOT_STOP;
     }
 
     if (shoot_mode == SHOOT_READY)
-    {
+    {	
+			
         //下拨一次或者鼠标按下一次，进入射击状态
         if ((switch_is_down(shoot_rc->rc.s[Shoot_RC_Channel]) && !switch_is_down(last_s)) || (trigger_motor.press_l && trigger_motor.last_press_l == 0) || (trigger_motor.press_r && trigger_motor.last_press_r == 0))
         {
-            shoot_mode = SHOOT_BULLET;
+            shoot_mode = SHOOT_BULLET; // Shoots one bullet
             trigger_motor.last_butter_count = trigger_motor.BulletShootCnt;
         }
         //鼠标长按一直进入射击状态 保持连发
@@ -279,6 +306,7 @@ static void Shoot_Set_Mode(void)
 
     last_s = shoot_rc->rc.s[Shoot_RC_Channel];
 }
+
 /**
   * @brief          射击数据更新
   * @author         RM
@@ -295,7 +323,7 @@ static void Shoot_Feedback_Update(void)
     //拨弹轮电机速度滤波一下
     static const fp32 fliter_num[3] = {1.725709860247969f, -0.75594777109163436f, 0.030237910843665373f};
 
-    //二阶低通滤波
+    //二阶低通滤波 Some fancy second order filter
     speed_fliter_1 = speed_fliter_2;
     speed_fliter_2 = speed_fliter_3;
     speed_fliter_3 = speed_fliter_2 * fliter_num[0] + speed_fliter_1 * fliter_num[1] + (trigger_motor.shoot_motor_measure->speed_rpm * Motor_RMP_TO_SPEED) * fliter_num[2];
@@ -368,6 +396,7 @@ static void Shoot_Feedback_Update(void)
         trigger_motor.rc_s_time = 0;
     }
 }
+
 /**
   * @brief          射击控制，控制拨弹电机角度，完成一次发射
   * @author         RM
