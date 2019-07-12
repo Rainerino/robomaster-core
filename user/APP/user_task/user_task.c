@@ -9,7 +9,6 @@
   *
   @verbatim
   ==============================================================================
-
   ==============================================================================
   @endverbatim
   ****************************(C) COPYRIGHT 2016 DJI****************************
@@ -32,7 +31,6 @@
 
 void USART_setup(void);
 void USART_puts(USART_TypeDef *USARTx, volatile char *str);
-	
 // end USART includes, prototypes
 
 #define user_is_error() toe_is_error(errorListLength)

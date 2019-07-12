@@ -79,13 +79,18 @@
 #define TurnKeyBoard KEY_PRESSED_OFFSET_F
 //掉头云台速度
 #define TurnSpeed 0.04f
+#define PositionSpeed 0.02f
 //测试按键尚未使用
 #define TestKeyBoard KEY_PRESSED_OFFSET_R
 //遥控器输入死区，因为遥控器存在差异，摇杆在中间，其值不一定为零
 #define RC_deadband 10
+
 //yaw，pitch角度与遥控器输入比例
 #define Yaw_RC_SEN -0.000005f
 #define Pitch_RC_SEN -0.000006f //0.005
+// yaw pitch mapping for position based control
+#define Yaw_RC_SCALE -0.00238f
+#define Pitch_RC_SCALE -0.000793f
 //yaw,pitch角度和鼠标输入的比例
 #define Yaw_Mouse_Sen 0.00005f
 #define Pitch_Mouse_Sen 0.00015f
@@ -94,6 +99,9 @@
 #define Pitch_Encoder_Sen 0.01f
 //云台控制周期
 #define GIMBAL_CONTROL_TIME 1
+
+//Degrees to radian conversion
+#define Deg_to_Rad 0.0174
 
 //云台测试模式 宏定义 0 为不使用测试模式
 #define GIMBAL_TEST_MODE 0
@@ -211,6 +219,7 @@ typedef struct
     Gimbal_Motor_t gimbal_pitch_motor;
     Gimbal_Cali_t gimbal_cali;
 } Gimbal_Control_t;
+
 
 extern const Gimbal_Motor_t *get_yaw_motor_point(void);
 extern const Gimbal_Motor_t *get_pitch_motor_point(void);
