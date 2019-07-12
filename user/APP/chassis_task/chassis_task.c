@@ -1,8 +1,8 @@
 /**
   ****************************(C) COPYRIGHT 2016 DJI****************************
   * @file       chassis.c/h
-  * @brief      Completes chassis control task
-  * @note       
+  * @brief      Complete the chassis control task.
+  * @note
   * @history
   *  Version    Date            Author          Modification
   *  V1.0.0     Dec-26-2018     RM              1. Complete
@@ -45,55 +45,56 @@
         }                                                \
     }
 
-//底盘运动数据
+//Chassis motion data
 static chassis_move_t chassis_move;
 // Initialize chassis, mainly starting pid
 static void chassis_init(chassis_move_t *chassis_move_init);
 // Select chassis mode, depending on RC switch
 static void chassis_set_mode(chassis_move_t *chassis_move_mode);
-	
-//底盘数据更新
+
+//Chassis data update
 static void chassis_feedback_update(chassis_move_t *chassis_move_update);
-//底盘状态改变后处理控制量的改变static
+//The change of the processing control amount after the chassis state is changed static
 void chassis_mode_change_control_transit(chassis_move_t *chassis_move_transit);
-//底盘设置根据遥控器控制量
+//Chassis setting according to remote control volume
 static void chassis_set_contorl(chassis_move_t *chassis_move_control);
-//底盘PID计算以及运动分解
+//Chassis PID calculation and motion decomposition
 static void chassis_control_loop(chassis_move_t *chassis_move_control_loop);
 
 #if INCLUDE_uxTaskGetStackHighWaterMark
 uint32_t chassis_high_water;
 #endif
 
-//主任务 MAIN TASK
+//Main task MAIN TASK
 void chassis_task(void *pvParameters)
 {
-    //空闲一段时间 
+    //Idle for a while
     vTaskDelay(CHASSIS_TASK_INIT_TIME);
-    //底盘初始化
+    //Chassis initialization
     chassis_init(&chassis_move);
-    //判断底盘电机是否都在线
-    /*while (toe_is_error(ChassisMotor1TOE) || toe_is_error(ChassisMotor2TOE) || toe_is_error(ChassisMotor3TOE) || toe_is_error(ChassisMotor4TOE) || toe_is_error(DBUSTOE))
+    //Determine if the chassis motor is online
+    while (toe_is_error(ChassisMotor1TOE) || toe_is_error(ChassisMotor2TOE) || toe_is_error(ChassisMotor3TOE) || toe_is_error(ChassisMotor4TOE) || toe_is_error(DBUSTOE))
     {
         vTaskDelay(CHASSIS_CONTROL_TIME_MS);
     }*/
 
     while (1)
     {
-        //遥控器设置状态
+        //Remote control setting status
         chassis_set_mode(&chassis_move);
-        //遥控器状态切换数据保存
+        //Remote control status switching data saving
         chassis_mode_change_control_transit(&chassis_move);
-        //底盘数据更新
+        //Chassis data update
         chassis_feedback_update(&chassis_move);
-        //底盘控制量设置
+        //Chassis control volume setting
         chassis_set_contorl(&chassis_move);
-        //底盘控制PID计算
+        //Chassis control PID calculation
         chassis_control_loop(&chassis_move);
 
         if (!(toe_is_error(ChassisMotor1TOE) || toe_is_error(ChassisMotor2TOE) || toe_is_error(ChassisMotor3TOE) || toe_is_error(ChassisMotor4TOE)))
         {
-            //当遥控器掉线的时候，为relax状态，底盘电机指令为零，为了保证一定发送为零，故而不采用设置give_current的方法
+            //When the remote control is disconnected, it is in the relaxed state, and the chassis motor command is zero.
+            //In order to ensure that the transmission is zero, the method of setting the give_current is not used.
             if (toe_is_error(DBUSTOE))
             {
                 CAN_CMD_CHASSIS(0, 0, 0, 0);
@@ -104,7 +105,7 @@ void chassis_task(void *pvParameters)
                                 chassis_move.motor_chassis[2].give_current, chassis_move.motor_chassis[3].give_current);
             }
         }
-        //系统延时
+        //System delay
         vTaskDelay(CHASSIS_CONTROL_TIME_MS);
 
 #if INCLUDE_uxTaskGetStackHighWaterMark
@@ -121,45 +122,42 @@ static void chassis_init(chassis_move_t *chassis_move_init)
         return;
     }
 
-    //底盘速度环pid值  
+    //Chassis speed loop pid value
 	// Collect speed pid values
     const static fp32 motor_speed_pid[3] = {M3505_MOTOR_SPEED_PID_KP, M3505_MOTOR_SPEED_PID_KI, M3505_MOTOR_SPEED_PID_KD};
-    //底盘旋转环pid值  
+    //Chassis rotation ring pid value
 	// Collect rotational pid values
     const static fp32 chassis_yaw_pid[3] = {CHASSIS_FOLLOW_GIMBAL_PID_KP, CHASSIS_FOLLOW_GIMBAL_PID_KI, CHASSIS_FOLLOW_GIMBAL_PID_KD};
     const static fp32 chassis_x_order_filter[1] = {CHASSIS_ACCEL_X_NUM};
     const static fp32 chassis_y_order_filter[1] = {CHASSIS_ACCEL_Y_NUM};
     uint8_t i;
 
-    //底盘开机状态为停止
+    //Chassis power on is stopped
     chassis_move_init->chassis_mode = CHASSIS_VECTOR_RAW;
-    //获取遥控器指针
-	// get the remote control pointer
+    //Get remote pointer
     chassis_move_init->chassis_RC = get_remote_control_point();
-    //获取陀螺仪姿态角指针
+    //Get gyroscope attitude angle pointer
     chassis_move_init->chassis_INS_angle = get_INS_angle_point();
-    //获取云台电机数据指针
+    //Get PTZ motor data pointer
 	// get gimbal motor pointers
     chassis_move_init->chassis_yaw_motor = get_yaw_motor_point();
     chassis_move_init->chassis_pitch_motor = get_pitch_motor_point();
-	
-    //初始化PID 运动
+
 	// Initialize PID
     for (i = 0; i < 4; i++)
     {
         chassis_move_init->motor_chassis[i].chassis_motor_measure = get_Chassis_Motor_Measure_Point(i);
         PID_Init(&chassis_move_init->motor_speed_pid[i], PID_POSITION, motor_speed_pid, M3505_MOTOR_SPEED_PID_MAX_OUT, M3505_MOTOR_SPEED_PID_MAX_IOUT);
     }
-    //初始化旋转PID
+
 	// Initialize rotational PID
     PID_Init(&chassis_move_init->chassis_angle_pid, PID_POSITION, chassis_yaw_pid, CHASSIS_FOLLOW_GIMBAL_PID_MAX_OUT, CHASSIS_FOLLOW_GIMBAL_PID_MAX_IOUT);
-    
-	//用一阶滤波代替斜波函数生成
+
+	//Use first-order filtering instead of ramp function generation
 	// Start the first order filter ????
     first_order_filter_init(&chassis_move_init->chassis_cmd_slow_set_vx, CHASSIS_CONTROL_TIME, chassis_x_order_filter);
     first_order_filter_init(&chassis_move_init->chassis_cmd_slow_set_vy, CHASSIS_CONTROL_TIME, chassis_y_order_filter);
 
-    //最大 最小速度
 	// Max and min speed
     chassis_move_init->vx_max_speed = NORMAL_MAX_CHASSIS_SPEED_X;
     chassis_move_init->vx_min_speed = -NORMAL_MAX_CHASSIS_SPEED_X;
@@ -167,7 +165,6 @@ static void chassis_init(chassis_move_t *chassis_move_init)
     chassis_move_init->vy_max_speed = NORMAL_MAX_CHASSIS_SPEED_Y;
     chassis_move_init->vy_min_speed = -NORMAL_MAX_CHASSIS_SPEED_Y;
 
-    //更新一下数据
 	// Data update
     chassis_feedback_update(chassis_move_init);
 }
@@ -194,17 +191,17 @@ static void chassis_mode_change_control_transit(chassis_move_t *chassis_move_tra
         return;
     }
 
-    //切入跟随云台模式
+    //Cut into the pan/tilt mode
     if ((chassis_move_transit->last_chassis_mode != CHASSIS_VECTOR_FOLLOW_GIMBAL_YAW) && chassis_move_transit->chassis_mode == CHASSIS_VECTOR_FOLLOW_GIMBAL_YAW)
     {
         chassis_move_transit->chassis_relative_angle_set = 0.0f;
     }
-    //切入跟随底盘角度模式
+    //Cut into the chassis angle mode
     else if ((chassis_move_transit->last_chassis_mode != CHASSIS_VECTOR_FOLLOW_CHASSIS_YAW) && chassis_move_transit->chassis_mode == CHASSIS_VECTOR_FOLLOW_CHASSIS_YAW)
     {
         chassis_move_transit->chassis_yaw_set = chassis_move_transit->chassis_yaw;
     }
-    //切入不跟随云台模式
+    //Cut in without following the pan/tilt mode
     else if ((chassis_move_transit->last_chassis_mode != CHASSIS_VECTOR_NO_FOLLOW_YAW) && chassis_move_transit->chassis_mode == CHASSIS_VECTOR_NO_FOLLOW_YAW)
     {
         chassis_move_transit->chassis_yaw_set = chassis_move_transit->chassis_yaw;
@@ -223,33 +220,34 @@ static void chassis_feedback_update(chassis_move_t *chassis_move_update)
     uint8_t i = 0;
     for (i = 0; i < 4; i++)
     {
-        //更新电机速度，加速度是速度的PID微分
+        //Update motor speed, acceleration is the PID differential of speed
         chassis_move_update->motor_chassis[i].speed = CHASSIS_MOTOR_RPM_TO_VECTOR_SEN * chassis_move_update->motor_chassis[i].chassis_motor_measure->speed_rpm;
         chassis_move_update->motor_chassis[i].accel = chassis_move_update->motor_speed_pid[i].Dbuf[0] * CHASSIS_CONTROL_FREQUENCE;
     }
 
-    //更新底盘前进速度 x， 平移速度y，旋转速度wz，坐标系为右手系
+    //Update the chassis forward speed x, the translation speed y, the rotation speed wz,
+    //and the coordinate system is the right hand system
     chassis_move_update->vx = (-chassis_move_update->motor_chassis[0].speed + chassis_move_update->motor_chassis[1].speed + chassis_move_update->motor_chassis[2].speed - chassis_move_update->motor_chassis[3].speed) * MOTOR_SPEED_TO_CHASSIS_SPEED_VX;
     chassis_move_update->vy = (-chassis_move_update->motor_chassis[0].speed - chassis_move_update->motor_chassis[1].speed + chassis_move_update->motor_chassis[2].speed + chassis_move_update->motor_chassis[3].speed) * MOTOR_SPEED_TO_CHASSIS_SPEED_VY;
     chassis_move_update->wz = (-chassis_move_update->motor_chassis[0].speed - chassis_move_update->motor_chassis[1].speed - chassis_move_update->motor_chassis[2].speed - chassis_move_update->motor_chassis[3].speed) * MOTOR_SPEED_TO_CHASSIS_SPEED_WZ / MOTOR_DISTANCE_TO_CENTER;
 
-    //计算底盘姿态角度, 如果底盘上有陀螺仪请更改这部分代码
+    //Calculate the attitude angle of the chassis. If there is a gyroscope on the chassis, please change this part of the code.
     chassis_move_update->chassis_yaw = rad_format(*(chassis_move_update->chassis_INS_angle + INS_YAW_ADDRESS_OFFSET) - chassis_move_update->chassis_yaw_motor->relative_angle);
     chassis_move_update->chassis_pitch = rad_format(*(chassis_move_update->chassis_INS_angle + INS_PITCH_ADDRESS_OFFSET) - chassis_move_update->chassis_pitch_motor->relative_angle);
     chassis_move_update->chassis_roll = *(chassis_move_update->chassis_INS_angle + INS_ROLL_ADDRESS_OFFSET);
 }
 
-//遥控器的数据处理成底盘的前进vx速度，vy速度
+//The data of the remote controller is processed into the forward vx speed of the chassis, and the vy speed
 void chassis_rc_to_control_vector(fp32 *vx_set, fp32 *vy_set, chassis_move_t *chassis_move_rc_to_vector)
 {
     if (chassis_move_rc_to_vector == NULL || vx_set == NULL || vy_set == NULL)
     {
         return;
     }
-    //遥控器原始通道值
+    //Remote channel original channel value
     int16_t vx_channel, vy_channel;
     fp32 vx_set_channel, vy_set_channel;
-    //死区限制，因为遥控器可能存在差异 摇杆在中间，其值不为0
+    //Dead zone limitation, because the remote control may be different. The joystick is in the middle and its value is not 0.
     rc_deadline_limit(chassis_move_rc_to_vector->chassis_RC->rc.ch[CHASSIS_X_CHANNEL], vx_channel, CHASSIS_RC_DEADLINE);
     rc_deadline_limit(chassis_move_rc_to_vector->chassis_RC->rc.ch[CHASSIS_Y_CHANNEL], vy_channel, CHASSIS_RC_DEADLINE);
 
@@ -274,11 +272,11 @@ void chassis_rc_to_control_vector(fp32 *vx_set, fp32 *vy_set, chassis_move_t *ch
         vy_set_channel = chassis_move_rc_to_vector->vy_min_speed;
     }
 
-    //一阶低通滤波代替斜波作为底盘速度输入
+    //First-order low-pass filtering instead of ramp as chassis speed input
     first_order_filter_cali(&chassis_move_rc_to_vector->chassis_cmd_slow_set_vx, vx_set_channel);
     first_order_filter_cali(&chassis_move_rc_to_vector->chassis_cmd_slow_set_vy, vy_set_channel);
 
-    //停止信号，不需要缓慢加速，直接减速到零
+    //Stop signal, do not need slow acceleration, decelerate directly to zero
     if (vx_set_channel < CHASSIS_RC_DEADLINE * CHASSIS_VX_RC_SEN && vx_set_channel > -CHASSIS_RC_DEADLINE * CHASSIS_VX_RC_SEN)
     {
         chassis_move_rc_to_vector->chassis_cmd_slow_set_vx.out = 0.0f;
@@ -293,54 +291,57 @@ void chassis_rc_to_control_vector(fp32 *vx_set, fp32 *vy_set, chassis_move_t *ch
     *vy_set = chassis_move_rc_to_vector->chassis_cmd_slow_set_vy.out;
 }
 
-//设置遥控器输入控制量
+//Set the remote control input control amount
 static void chassis_set_contorl(chassis_move_t *chassis_move_control)
 {
+    static fp32 i = 500; // Dictates how long it will turn for
+    static fp32 k = 1000;
 
     if (chassis_move_control == NULL)
     {
         return;
     }
 
-    //设置速度
+    //Set speed
     fp32 vx_set = 0.0f, vy_set = 0.0f, angle_set = 0.0f;
     chassis_behaviour_control_set(&vx_set, &vy_set, &angle_set, chassis_move_control);
 
-    //跟随云台模式
+    //Follow the pan/tilt mode
     if (chassis_move_control->chassis_mode == CHASSIS_VECTOR_FOLLOW_GIMBAL_YAW)
     {
         fp32 sin_yaw = 0.0f, cos_yaw = 0.0f;
-        //旋转控制底盘速度方向，保证前进方向是云台方向，有利于运动平稳
+        //Rotate to control the speed direction of the chassis to ensure that the forward direction
+        //is the direction of the gimbal, which is conducive to smooth movement.
         sin_yaw = arm_sin_f32(-chassis_move_control->chassis_yaw_motor->relative_angle);
         cos_yaw = arm_cos_f32(-chassis_move_control->chassis_yaw_motor->relative_angle);
         chassis_move_control->vx_set = cos_yaw * vx_set + sin_yaw * vy_set;
         chassis_move_control->vy_set = -sin_yaw * vx_set + cos_yaw * vy_set;
-        //设置控制相对云台角度
+        //Set control relative to the pan/tilt angle
         chassis_move_control->chassis_relative_angle_set = rad_format(angle_set);
-        //计算旋转PID角速度
+        //Calculate the rotational angular velocity of the PID
         chassis_move_control->wz_set = -PID_Calc(&chassis_move_control->chassis_angle_pid, chassis_move_control->chassis_yaw_motor->relative_angle, chassis_move_control->chassis_relative_angle_set);
-        //速度限幅
+        //Speed
         chassis_move_control->vx_set = fp32_constrain(chassis_move_control->vx_set, chassis_move_control->vx_min_speed, chassis_move_control->vx_max_speed);
         chassis_move_control->vy_set = fp32_constrain(chassis_move_control->vy_set, chassis_move_control->vy_min_speed, chassis_move_control->vy_max_speed);
     }
     else if (chassis_move_control->chassis_mode == CHASSIS_VECTOR_FOLLOW_CHASSIS_YAW)
     {
         fp32 delat_angle = 0.0f;
-        //放弃跟随云台
-        //设置底盘控制的角度
+        //Give up following the gimbal
+        //Set the angle of the chassis control
         chassis_move_control->chassis_yaw_set = rad_format(angle_set);
         delat_angle = rad_format(chassis_move_control->chassis_yaw_set - chassis_move_control->chassis_yaw);
-        //计算旋转的角速度
+        //Calculate the angular velocity of rotation
         chassis_move_control->wz_set = PID_Calc(&chassis_move_control->chassis_angle_pid, 0.0f, delat_angle);
-        //设置底盘运动的速度
+        //Set the speed of the chassis movement
         chassis_move_control->vx_set = fp32_constrain(vx_set, chassis_move_control->vx_min_speed, chassis_move_control->vx_max_speed);
         chassis_move_control->vy_set = fp32_constrain(vy_set, chassis_move_control->vy_min_speed, chassis_move_control->vy_max_speed);
     }
     else if (chassis_move_control->chassis_mode == CHASSIS_VECTOR_NO_FOLLOW_YAW)
     {
 
-        //放弃跟随云台
-        //这个模式下，角度设置的为 角速度
+        //Give up following the gimbal
+        //In this mode, the angle is set to the angular velocity.
         fp32 chassis_wz = angle_set;
         chassis_move_control->wz_set = chassis_wz;
         chassis_move_control->vx_set = fp32_constrain(vx_set, chassis_move_control->vx_min_speed, chassis_move_control->vx_max_speed);
@@ -354,10 +355,36 @@ static void chassis_set_contorl(chassis_move_t *chassis_move_control)
         chassis_move_control->chassis_cmd_slow_set_vx.out = 0.0f;
         chassis_move_control->chassis_cmd_slow_set_vy.out = 0.0f;
     }
+    else if (chassis_move_control->chassis_mode == CHASSIS_VECTOR_SWIRL)
+    {
+        chassis_move_control->vx_set = vx_set;
+        chassis_move_control->vy_set = vy_set;
+        chassis_move_control->chassis_cmd_slow_set_vx.out = 0.0f;
+        chassis_move_control->chassis_cmd_slow_set_vy.out = 0.0f;
+
+        // Will enable to swirl in CC-wise direction depending on the value of i
+        while (i > 1)
+        {
+            chassis_move_control->wz_set = 3.0f; // 3.0 represents speed, max spped is 4.0
+            i--;
+            return;
+        }
+
+        // Will enable to swirl in C-wise direction depending on the value of k
+        while (k > 1)
+        {
+            chassis_move_control->wz_set = -3.0f; // negative makes it spin in the other direction
+            k--;
+            return;
+        }
+
+        i = 1000; // after done swirling both ways, reset variable values
+        k = 1000;
+    }
 }
 static void chassis_vector_to_mecanum_wheel_speed(const fp32 vx_set, const fp32 vy_set, const fp32 wz_set, fp32 wheel_speed[4])
 {
-    //旋转的时候， 由于云台靠前，所以是前面两轮 0 ，1 旋转的速度变慢， 后面两轮 2,3 旋转的速度变快
+    //When rotating, because the head is forward, so the first two rounds 0, 1 rotation speed is slower, the last two wheels 2, 3 rotation speed becomes faster
     wheel_speed[0] = -vx_set - vy_set + (CHASSIS_WZ_SET_SCALE - 1.0f) * MOTOR_DISTANCE_TO_CENTER * wz_set;
     wheel_speed[1] = vx_set - vy_set + (CHASSIS_WZ_SET_SCALE - 1.0f) * MOTOR_DISTANCE_TO_CENTER * wz_set;
     wheel_speed[2] = vx_set + vy_set + (-CHASSIS_WZ_SET_SCALE - 1.0f) * MOTOR_DISTANCE_TO_CENTER * wz_set;
@@ -370,22 +397,22 @@ static void chassis_control_loop(chassis_move_t *chassis_move_control_loop)
     fp32 temp = 0.0f;
     fp32 wheel_speed[4] = {0.0f, 0.0f, 0.0f, 0.0f};
     uint8_t i = 0;
-    //麦轮运动分解
+    //Wheat wheel movement decomposition
     chassis_vector_to_mecanum_wheel_speed(chassis_move_control_loop->vx_set,
                                           chassis_move_control_loop->vy_set, chassis_move_control_loop->wz_set, wheel_speed);
 
     if (chassis_move_control_loop->chassis_mode == CHASSIS_VECTOR_RAW)
     {
-        //赋值电流值
+        //Assigned current value
         for (i = 0; i < 4; i++)
         {
             chassis_move_control_loop->motor_chassis[i].give_current = (int16_t)(wheel_speed[i]);
         }
-        //raw控制直接返回
+        //Raw control returns directly
         return;
     }
 
-    //计算轮子控制最大速度，并限制其最大速度
+    //Calculate the maximum speed of the wheel control and limit its maximum speed
     for (i = 0; i < 4; i++)
     {
         chassis_move_control_loop->motor_chassis[i].speed_set = wheel_speed[i];
@@ -405,14 +432,14 @@ static void chassis_control_loop(chassis_move_t *chassis_move_control_loop)
         }
     }
 
-    //计算pid
+    //Calculate pid
 
     for (i = 0; i < 4; i++)
     {
         PID_Calc(&chassis_move_control_loop->motor_speed_pid[i], chassis_move_control_loop->motor_chassis[i].speed, chassis_move_control_loop->motor_chassis[i].speed_set);
     }
 
-    //赋值电流值
+    //Assigned current value
     for (i = 0; i < 4; i++)
     {
         chassis_move_control_loop->motor_chassis[i].give_current = (int16_t)(chassis_move_control_loop->motor_speed_pid[i].out);
