@@ -110,7 +110,6 @@ typedef enum
   CHASSIS_VECTOR_FOLLOW_CHASSIS_YAW,
   CHASSIS_VECTOR_NO_FOLLOW_YAW,
   CHASSIS_VECTOR_RAW,
-
   //  CHASSIS_AUTO,
   //  CHASSIS_FOLLOW_YAW,
   //  CHASSIS_ENCODER,
@@ -152,10 +151,10 @@ typedef struct
   fp32 chassis_relative_angle_set; //设置相对云台控制角度  										
   fp32 chassis_yaw_set;
 
-  fp32 vx_max_speed;  //前进方向最大速度 单位m/s
-  fp32 vx_min_speed;  //前进方向最小速度 单位m/s
-  fp32 vy_max_speed;  //左右方向最大速度 单位m/s
-  fp32 vy_min_speed;  //左右方向最小速度 单位m/s
+  fp32 vx_max_speed;  //前进方向最大速度 单位m/s					front / back max speed, in m/s 
+  fp32 vx_min_speed;  //前进方向最小速度 单位m/s					front / back min speed, in m/s 
+  fp32 vy_max_speed;  //左右方向最大速度 单位m/s					left / right max speed, in m/s
+  fp32 vy_min_speed;  //左右方向最小速度 单位m/s					left / right min speed, in m/s
   fp32 chassis_yaw;   //陀螺仪和云台电机叠加的yaw角度  		yaw angle based on gyro and gimbal motors
   fp32 chassis_pitch; //陀螺仪和云台电机叠加的pitch角度		pitch angle based on gyro and gimbal motors
   fp32 chassis_roll;  //陀螺仪和云台电机叠加的roll角度		roll angle based on gyro and gimbal motors

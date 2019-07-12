@@ -10,7 +10,7 @@
   * @note       
   * @history
   *  Version    Date            Author          Modification
-  *  V1.0.0     Dec-26-2018     RM              1. 完成
+  *  V1.0.0     Dec-26-2018     RM              1. Complete
   *
   @verbatim
   ==============================================================================
@@ -31,19 +31,20 @@
 #include "stdio.h"
 #include "stdlib.h"
 
-////云台校准蜂鸣器响声
-//#define GIMBALWarnBuzzerOn() buzzer_on(31, 20000)
-//#define GIMBALWarnBuzzerOFF() buzzer_off()
+// Turns on buzzer when GIMBAL is calibrating
+#define GIMBALWarnBuzzerOn() buzzer_on(31, 20000)
+#define GIMBALWarnBuzzerOFF() buzzer_off()
 
 #define int_abs(x) ((x) > 0 ? (x) : (-x))
 /**
-  * @brief          遥控器的死区判断，因为遥控器的拨杆在中位的时候，不一定是发送1024过来，
+  * @brief          Deadline, handles cases when joystick is not quite centered
   * @author         RM
-  * @param[in]      输入的遥控器值
-  * @param[in]      输出的死区处理后遥控器值
-  * @param[in]      死区值
-  * @retval         返回空
+  * @param[in]      Input RC value
+  * @param[in]      Control value output after deadline 
+  * @param[in]      Deadline range
+  * @retval         Return void
   */
+	
 #define rc_deadline_limit(input, output, dealine)        \
     {                                                    \
         if ((input) > (dealine) || (input) < -(dealine)) \
@@ -57,16 +58,16 @@
     }
 
 /**
-  * @brief          云台校准的通过判断角速度来判断云台是否到达极限位置
+		* @brief        Calibrate gimbal: determine if gimbal is at end positions by measuring angular velocity
   * @author         RM
-  * @param[in]      对应轴的角速度，单位rad/s
-  * @param[in]      计时时间，到达GIMBAL_CALI_STEP_TIME的时间后归零
-  * @param[in]      记录的角度 rad
-  * @param[in]      反馈的角度 rad
-  * @param[in]      记录的编码值 raw
-  * @param[in]      反馈的编码值 raw
-  * @param[in]      校准的步骤 完成一次 加一
-  * @retval         返回空
+  * @param[in]      Gyro angular velocity readings, in rad/s
+  * @param[in]      Timer, sets to zero when it reaches GIMBAL_CALI_STEP_TIME
+  * @param[in]      Gyro angle recorded, rad
+  * @param[in]      Feedback angle, rad
+  * @param[in]      Encoder recordeed, raw
+  * @param[in]      Feedback encoder reading, raw
+	* @param[in]      Step: counter
+  * @retval         Return void
   */
 #define GIMBAL_CALI_GYRO_JUDGE(gyro, cmd_time, angle_set, angle, ecd_set, ecd, step) \
     {                                                                                \
@@ -83,12 +84,6 @@
         }                                                                            \
     }
 
-/**
-  * @brief          云台行为状态机设置，因为在cali等模式下使用了return，故而再用了一个函数
-  * @author         RM
-  * @param[in]      云台数据指针
-  * @retval         返回空
-  */
 static void gimbal_behavour_set(Gimbal_Control_t *gimbal_mode_set);
 
 /**

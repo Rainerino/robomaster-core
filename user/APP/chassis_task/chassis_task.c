@@ -1,11 +1,11 @@
 /**
   ****************************(C) COPYRIGHT 2016 DJI****************************
   * @file       chassis.c/h
-  * @brief      完成底盘控制任务。
+  * @brief      Completes chassis control task
   * @note       
   * @history
   *  Version    Date            Author          Modification
-  *  V1.0.0     Dec-26-2018     RM              1. 完成
+  *  V1.0.0     Dec-26-2018     RM              1. Complete
   *
   @verbatim
   ==============================================================================
