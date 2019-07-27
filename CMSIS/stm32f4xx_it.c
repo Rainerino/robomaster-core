@@ -31,11 +31,7 @@
 #include "stm32f4xx_it.h"
 #include "main.h"
 #include "gimbal_task.h"
-
-#include "FreeRTOS.h"
-
-#include "led.h"
-#include "task.h"
+#include "buzzer.h"
 
 /** @addtogroup Template_Project
   * @{
@@ -177,7 +173,8 @@ void SysTick_Handler(void)
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
 
 extern void USART_puts(USART_TypeDef *USARTx, volatile char *str);
-extern volatile int USART_Data;
+extern volatile uint8_t USART_Data;
+extern volatile int Data_received;
 
 // interrupt request handler for all USART6 interrupts
 // is called every time 1 byte is received
@@ -186,5 +183,7 @@ void USART6_IRQHandler(void)
 	// make sure USART6 was intended to be called for this interrupt
 	if(USART_GetITStatus(USART6, USART_IT_RXNE) != RESET) {
 		USART_Data = USART_ReceiveData(USART6);
+		Data_received = 1;
+
 	}
 }

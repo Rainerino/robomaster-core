@@ -1,85 +1,81 @@
 /**
-  ****************************(C) COPYRIGHT 2016 DJI****************************
-  * @file       gimbal_task.c/h
-  * @brief      Task controls gimbal. Since gimbal uses many derived angles from the
-  *				gyro (between pi and -pi), therefore all targets are a range of angles;
-  *				Many functions are calculations related to angles.
-  *				The gimbal has 2 main modes: gyro control mode where control is based 
-  *				the angles provided by gyro; encoder mode where control is based on 
-  *				encoder feedback of the motors; also there are calibration mode and stopped mode.
-  * @note       
+  * @file       gimbal_behaviour.c
+  * @brief      Controls gimbal based on 4 modes:
+  *             - Gyro control mode, where control is based on the angles provided by gyro (between -π and π)
+  *             - Encoder mode, where control is based on encoder feedback of the motors
+  *             - Calibration mode
+  *             - Stopped mode
   * @history
   *  Version    Date            Author          Modification
-  *  V1.0.0     Dec-26-2018     RM              1. Complete
-  *
-  @verbatim
-  ==============================================================================
-
-  ==============================================================================
-  @endverbatim
-  ****************************(C) COPYRIGHT 2016 DJI****************************
-  */
+  *  V1.0.0     Jul-16-2019     Pedram          1. Reorganized code
+*/
 
 #include "gimbal_behaviour.h"
 #include "arm_math.h"
 #include "buzzer.h"
 #include "Detect_Task.h"
-
-#include "stm32f4xx.h"       
-
+#include "stm32f4xx.h"
 #include "user_lib.h"
 #include "stdio.h"
 #include "stdlib.h"
 
-// Turns on buzzer when GIMBAL is calibrating
-#define GIMBALWarnBuzzerOn() buzzer_on(31, 20000)
-#define GIMBALWarnBuzzerOFF() buzzer_off()
+/**
+  * @brief      Turns buzzer on during Gimbal calibration
+  * @author     RM
+  */
+#define gimbal_warn_buzzer_on() buzzer_on(31, 20000)
 
+/**
+  * @brief      Turns buzzer off during Gimbal calibration
+  * @author     RM
+  */
+#define gimbal_warn_buzzer_off() buzzer_off()
+
+/**
+  * @brief      Takes the absolute value of a number
+  * @author     RM
+  * @param[in]  x, the number
+  * @retval     abs(x)
+  */
 #define int_abs(x) ((x) > 0 ? (x) : (-x))
-/**
-  * @brief          Deadline, handles cases when joystick is not quite centered
-  * @author         RM
-  * @param[in]      Input RC value
-  * @param[in]      Control value output after deadline 
-  * @param[in]      Deadline range
-  * @retval         Return void
-  */
-	
-#define rc_deadline_limit(input, output, dealine)        \
-    {                                                    \
-        if ((input) > (dealine) || (input) < -(dealine)) \
-        {                                                \
-            (output) = (input);                          \
-        }                                                \
-        else                                             \
-        {                                                \
-            (output) = 0;                                \
-        }                                                \
-    }
 
 /**
-		* @brief        Calibrate gimbal: determine if gimbal is at end positions by measuring angular velocity
-  * @author         RM
-  * @param[in]      Gyro angular velocity readings, in rad/s
-  * @param[in]      Timer, sets to zero when it reaches GIMBAL_CALI_STEP_TIME
-  * @param[in]      Gyro angle recorded, rad
-  * @param[in]      Feedback angle, rad
-  * @param[in]      Encoder recordeed, raw
-  * @param[in]      Feedback encoder reading, raw
-	* @param[in]      Step: counter
-  * @retval         Return void
+  * @brief      Handles cases when RC joystick is not quite centered
+  * @author     RM
+  * @param[in]  input, RC joystick value
+  * @param[in]  output, control value after deadline is applied
+  * @param[in]  deadline, specifies range in which joystick is considered centered
   */
-#define GIMBAL_CALI_GYRO_JUDGE(gyro, cmd_time, angle_set, angle, ecd_set, ecd, step) \
+#define rc_deadline_limit(input, output, deadline) \
+	{                                              \
+		if (input > deadline || input < -deadline) \
+            output = input;                        \
+        else                                       \
+            output = 0;                            \
+    }
+    
+/**
+  * @brief      Calibrate gimbal: determine if gimbal is at end positions by measuring angular velocity
+  * @author     RM
+  * @param[in]  gyro, gyro angular velocity reading (rad/s)
+  * @param[in]  cmd_time, timer that sets to zero when it reaches GIMBAL_CALI_STEP_TIME
+  * @param[in]  angle_set, gyro angle recorded (rad)
+  * @param[in]  angle, feedback angle (rad)
+  * @param[in]  ecd_set, encoder recorded (raw)
+  * @param[in]  ecd, feedback encoder reading (raw)
+  * @param[in]  step, counter
+  */
+#define gimbal_cali_gyro_judge(gyro, cmd_time, angle_set, angle, ecd_set, ecd, step) \
     {                                                                                \
-        if ((gyro) < GIMBAL_CALI_GYRO_LIMIT)                                         \
+        if (gyro < GIMBAL_CALI_GYRO_LIMIT)                                           \
         {                                                                            \
-            (cmd_time)++;                                                            \
-            if ((cmd_time) > GIMBAL_CALI_STEP_TIME)                                  \
+            cmd_time++;                                                              \
+            if (cmd_time > GIMBAL_CALI_STEP_TIME)                                    \
             {                                                                        \
-                (cmd_time) = 0;                                                      \
-                (angle_set) = (angle);                                               \
-                (ecd_set) = (ecd);                                                   \
-                (step)++;                                                            \
+                cmd_time = 0;                                                        \
+                angle_set = angle;                                                   \
+                ecd_set = ecd;                                                       \
+                step++;                                                              \
             }                                                                        \
         }                                                                            \
     }
@@ -149,6 +145,17 @@ static void gimbal_position_based_control (fp32 *yaw, fp32 *pitch, Gimbal_Contro
 
 // Position based control from USART transmission
 static void gimbal_pos_USART (fp32 *yaw, fp32 *pitch, Gimbal_Control_t *gimbal_control_set);
+
+/**
+  * @brief      Detect a keydown event
+  * @author     The Jingler
+	* @param[in]  key, keyboard key to look for a keydown event
+  * @param[in]  key_state, current state of keyboard key
+  * @param[in]  past_key_state, state of keyboard key from previous loop
+  * @retval     1 (True) if keydown event occurs, 0 (False) otherwise
+  */
+#define keydown(key, key_state, past_key_state) ( (past_key_state != key_state) && (key_state & key) )
+
 
 //云台行为状态机
 static gimbal_behaviour_e gimbal_behaviour = GIMBAL_ZERO_FORCE;
@@ -376,20 +383,33 @@ static void gimbal_behavour_set(Gimbal_Control_t *gimbal_mode_set)
             init_time = 0;
         }
     }
+		
+		static gimbal_behaviour_e last_gimbal_behaviour = GIMBAL_ZERO_FORCE;	// from line 401
 
-    //开关控制 云台状态
-    if (switch_is_down(gimbal_mode_set->gimbal_rc_ctrl->rc.s[ModeChannel]))
+    //开关控制 云台状态																													// if switch down OR c pressed and need to change
+    if (switch_is_down(gimbal_mode_set->gimbal_rc_ctrl->rc.s[ModeChannel]) || ( (last_gimbal_behaviour == GIMBAL_ABSOLUTE_ANGLE) && keydown(CHANGE_MODE_KEY, gimbal_mode_set->gimbal_rc_ctrl->key.v, last_gimbal_behaviour) ))
     {
-        gimbal_behaviour = GIMBAL_ZERO_FORCE; //NO FORCE
+        gimbal_behaviour = GIMBAL_POS_USART;
     }
     else if (switch_is_mid(gimbal_mode_set->gimbal_rc_ctrl->rc.s[ModeChannel]))
     {
-        gimbal_behaviour = GIMBAL_RELATIVE_ANGLE;
-    }
-    else if (switch_is_up(gimbal_mode_set->gimbal_rc_ctrl->rc.s[ModeChannel]))
+        gimbal_behaviour = GIMBAL_ZERO_FORCE; //NO FORCE
+    }																																					// if switch up OR c pressed and need to change
+    else if (switch_is_up(gimbal_mode_set->gimbal_rc_ctrl->rc.s[ModeChannel]) || ( (last_gimbal_behaviour == GIMBAL_POS_USART) && keydown(CHANGE_MODE_KEY, gimbal_mode_set->gimbal_rc_ctrl->key.v, last_gimbal_behaviour) ))
     { 
-				gimbal_behaviour = GIMBAL_POS_USART; 
+				gimbal_behaviour = GIMBAL_ABSOLUTE_ANGLE;
     }
+		
+		
+		if(keydown(CHANGE_MODE_KEY, gimbal_mode_set->gimbal_rc_ctrl->key.v, last_gimbal_behaviour))
+		{
+			buzzer_on(31, 20000);
+		}
+		else
+		{
+			buzzer_off();
+		}
+		
 
     if( toe_is_error(DBUSTOE))
     {
@@ -399,7 +419,7 @@ static void gimbal_behavour_set(Gimbal_Control_t *gimbal_mode_set)
 
     //判断进入init状态机
     {
-        static gimbal_behaviour_e last_gimbal_behaviour = GIMBAL_ZERO_FORCE;
+        // static gimbal_behaviour_e last_gimbal_behaviour = GIMBAL_ZERO_FORCE;		// to line 377
         if (last_gimbal_behaviour == GIMBAL_ZERO_FORCE && gimbal_behaviour != GIMBAL_ZERO_FORCE)
         {
             gimbal_behaviour = GIMBAL_INIT;
@@ -464,33 +484,133 @@ static void gimbal_position_based_control (fp32 *yaw, fp32 *pitch, Gimbal_Contro
     }
 }
 
-volatile int USART_Data = 0;
+volatile uint8_t USART_Data = 0;
+volatile int Data_received = 0;
+extern void USART_puts(USART_TypeDef *USARTx, volatile char *str);
+extern void USART_cmd_shoot(void);
 
 // Position based control from USART
 static void gimbal_pos_USART (fp32 *yaw, fp32 *pitch, Gimbal_Control_t *gimbal_control_set)
 {
     if (yaw == NULL || pitch == NULL || gimbal_control_set == NULL)
     {
-        return;
+			return;
     }
 
     {
-        static fp32 yaw_target_angle, pitch_target_angle;	
-				int USART_Data_Yaw, USART_Data_Pitch;			
+			double yaw_change_intensity = gimbal_control_set->gimbal_yaw_motor.relative_angle;
+			double pitch_change_intensity = gimbal_control_set->gimbal_pitch_motor.relative_angle;
+			static int i = 0;
 			
-				USART_Data_Yaw = USART_Data / 100 - 50;		// x
-				USART_Data_Pitch = USART_Data % 100 - 50;	// y
-				
-				// Take reading from USART and convert bewteen to target yaw angle
-				yaw_target_angle = gimbal_control_set->gimbal_yaw_motor.relative_angle - USART_Data_Yaw * Deg_to_Rad / 100;
-				
-				// Take reading from USART and convert bewteen acquired data cases and pitch angle
-				pitch_target_angle = gimbal_control_set->gimbal_pitch_motor.relative_angle + USART_Data_Pitch * Deg_to_Rad / 300 ;
+			const int N = 4;	// total number of positions
+			const int YAW = 0, PITCH = 1;
+			double aim_to[N][2] =
+				{ /* yaw   pit												 _.-0-._			*/
+						{0.0,  0.1},	/* pos 0						/		|	 	\			*/
+						{0.1,  0.0},	/* pos 1					 3----+----1		*/
+						{0.0, -0.1},	/* pos 2						\		| 	/			*/
+						{-0.1, 0.0}		/* pos 3						 `-.2.-`			*/
+				};
+
 			
-				// set yaw and pitch to the designated angles
-				*yaw = (yaw_target_angle - gimbal_control_set->gimbal_yaw_motor.relative_angle) * PositionSpeed; 
-				*pitch = (pitch_target_angle - gimbal_control_set->gimbal_pitch_motor.relative_angle) * PositionSpeed;
+			if(Data_received == 1)
+			{
+					++i;
+					
+					if(i < 1000)	// aim long enough to shoot
+					{
+							yaw_change_intensity = aim_to[USART_Data][YAW];
+							pitch_change_intensity = aim_to[USART_Data][PITCH];
+							
+							if(i == 800)	// when to shoot
+							{
+								USART_cmd_shoot();
+							}
+					}
+					else	// reset		
+					{
+							Data_received = 0;
+							i = 0;
+					}
+			}
 			
+			/*
+			// |x|x|x|x|x|x|x|, data received from USART				0b1010011 & 0001111
+			// |--p--|---y---|, p = pitch, y = yaw
+			// 0 <= p <= 6, 0 <= y <= 14
+			
+			// 55 corresponds to p=3, y=7
+			// yaw/pitch_change intensity are two measures between -1 and 1 
+			// for how fast (and direction) pitch/yaw should change to aim
+			if (USART_Data != 55) {
+				if (0 <= USART_Data%16 && USART_Data%16 <= 14)
+					yaw_change_intensity = (USART_Data % 16 - 7)/7.0;
+				if (0 <= USART_Data/16 && USART_Data/16 <= 6)
+					pitch_change_intensity = -(USART_Data / 16 - 3)/3.0;
+				USART_Data = 55;
+			}
+			*/
+			
+			/*
+			double pitch_change_intensity = 0.0;
+			double yaw_change_intensity = 0.0;
+			static int i = 0;
+			
+			if(Data_received == 1)
+			{
+					++i;
+					if(i < 75)	// delay before aim
+					{
+							yaw_change_intensity = 0.0f;
+							pitch_change_intensity = 0.0f;
+					}
+					else if(i < 1250)	// aim long enough to shoot
+					{
+							yaw_change_intensity = USART_Data / -100;	// position
+							pitch_change_intensity = 0; //-0.05f;
+							// shoot but only once
+					}
+					else	// reset		
+					{
+							yaw_change_intensity = 0.0f;
+							pitch_change_intensity = 0.0f;
+							Data_received = 0;
+							i = 0;
+					}
+			}
+			*/
+			
+			
+			/*
+			{
+			double yaw_change_intensity = 0.0;		// -1 <= yaw_change_intensity <= 1
+			double pitch_change_intensity = 0.0;	// -1 <= pitch_change_intensity <= 1
+			double USART_YAW_SCALE = 10;
+			double USART_PITCH_SCALE = 10;
+			double angle_rad = USART_Data / 255 * 360 * 3.1415926535 / 180;		// 255th's of one circle -> degrees -> radians
+			
+			// USART_puts(USART6, (char*) &angle_rad);
+
+			yaw_change_intensity = sin(0.5) * 1;
+			pitch_change_intensity = cos(0.5) * 1;
+			
+			//USART_puts(USART6, (char*) &yaw_change_intensity);
+			//USART_puts(USART6, (char*) &pitch_change_intensity);
+			
+			*/
+			
+			/*
+			*yaw = yaw_change_intensity * 0.2;
+			*pitch = pitch_change_intensity * 0.2;
+    }
+			*/
+			
+			*yaw = (yaw_change_intensity - gimbal_control_set->gimbal_yaw_motor.relative_angle) * 0.005; 
+			*pitch = (pitch_change_intensity - gimbal_control_set->gimbal_pitch_motor.relative_angle) * 0.005;
+			
+			while(USART_GetFlagStatus(USART6, USART_FLAG_TC) == RESET);
+			USART_SendData(USART6, 1);
+
     }
 }
 
@@ -564,7 +684,7 @@ static void gimbal_cali_control(fp32 *yaw, fp32 *pitch, Gimbal_Control_t *gimbal
         *yaw = 0;
 
         //判断陀螺仪数据， 并记录最大最小角度数据
-        GIMBAL_CALI_GYRO_JUDGE(gimbal_control_set->gimbal_pitch_motor.motor_gyro, cali_time, gimbal_control_set->gimbal_cali.max_pitch,
+        gimbal_cali_gyro_judge(gimbal_control_set->gimbal_pitch_motor.motor_gyro, cali_time, gimbal_control_set->gimbal_cali.max_pitch,
                                gimbal_control_set->gimbal_pitch_motor.absolute_angle, gimbal_control_set->gimbal_cali.max_pitch_ecd,
                                gimbal_control_set->gimbal_pitch_motor.gimbal_motor_measure->ecd, gimbal_control_set->gimbal_cali.step);
     }
@@ -573,7 +693,7 @@ static void gimbal_cali_control(fp32 *yaw, fp32 *pitch, Gimbal_Control_t *gimbal
         *pitch = -GIMBAL_CALI_MOTOR_SET;
         *yaw = 0;
 
-        GIMBAL_CALI_GYRO_JUDGE(gimbal_control_set->gimbal_pitch_motor.motor_gyro, cali_time, gimbal_control_set->gimbal_cali.min_pitch,
+        gimbal_cali_gyro_judge(gimbal_control_set->gimbal_pitch_motor.motor_gyro, cali_time, gimbal_control_set->gimbal_cali.min_pitch,
                                gimbal_control_set->gimbal_pitch_motor.absolute_angle, gimbal_control_set->gimbal_cali.min_pitch_ecd,
                                gimbal_control_set->gimbal_pitch_motor.gimbal_motor_measure->ecd, gimbal_control_set->gimbal_cali.step);
     }
@@ -582,7 +702,7 @@ static void gimbal_cali_control(fp32 *yaw, fp32 *pitch, Gimbal_Control_t *gimbal
         *pitch = 0;
         *yaw = GIMBAL_CALI_MOTOR_SET;
 
-        GIMBAL_CALI_GYRO_JUDGE(gimbal_control_set->gimbal_yaw_motor.motor_gyro, cali_time, gimbal_control_set->gimbal_cali.max_yaw,
+        gimbal_cali_gyro_judge(gimbal_control_set->gimbal_yaw_motor.motor_gyro, cali_time, gimbal_control_set->gimbal_cali.max_yaw,
                                gimbal_control_set->gimbal_yaw_motor.absolute_angle, gimbal_control_set->gimbal_cali.max_yaw_ecd,
                                gimbal_control_set->gimbal_yaw_motor.gimbal_motor_measure->ecd, gimbal_control_set->gimbal_cali.step);
     }
@@ -592,7 +712,7 @@ static void gimbal_cali_control(fp32 *yaw, fp32 *pitch, Gimbal_Control_t *gimbal
         *pitch = 0;
         *yaw = -GIMBAL_CALI_MOTOR_SET;
 
-        GIMBAL_CALI_GYRO_JUDGE(gimbal_control_set->gimbal_yaw_motor.motor_gyro, cali_time, gimbal_control_set->gimbal_cali.min_yaw,
+        gimbal_cali_gyro_judge(gimbal_control_set->gimbal_yaw_motor.motor_gyro, cali_time, gimbal_control_set->gimbal_cali.min_yaw,
                                gimbal_control_set->gimbal_yaw_motor.absolute_angle, gimbal_control_set->gimbal_cali.min_yaw_ecd,
                                gimbal_control_set->gimbal_yaw_motor.gimbal_motor_measure->ecd, gimbal_control_set->gimbal_cali.step);
     }

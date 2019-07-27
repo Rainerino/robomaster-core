@@ -53,6 +53,11 @@
 #define KEY_PRESSED_OFFSET_C ((uint16_t)1 << 13)
 #define KEY_PRESSED_OFFSET_V ((uint16_t)1 << 14)
 #define KEY_PRESSED_OFFSET_B ((uint16_t)1 << 15)
+
+// c changes mode between full control mode and USART mode
+#define CHANGE_MODE_KEY KEY_PRESSED_OFFSET_C
+
+
 /* ----------------------- Data Struct ------------------------------------- */
 typedef __packed struct
 {
