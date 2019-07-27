@@ -54,8 +54,9 @@
 #define KEY_PRESSED_OFFSET_V ((uint16_t)1 << 14)
 #define KEY_PRESSED_OFFSET_B ((uint16_t)1 << 15)
 
-// c changes mode between full control mode and USART mode
-#define CHANGE_MODE_KEY KEY_PRESSED_OFFSET_C
+// c changes mode to user control mode
+#define CHANGE_MODE_TO_CONTROL_KEY KEY_PRESSED_OFFSET_C
+#define CHANGE_MODE_TO_USART_KEY KEY_PRESSED_OFFSET_V
 
 
 /* ----------------------- Data Struct ------------------------------------- */

@@ -150,11 +150,11 @@ static void gimbal_pos_USART (fp32 *yaw, fp32 *pitch, Gimbal_Control_t *gimbal_c
   * @brief      Detect a keydown event
   * @author     The Jingler
 	* @param[in]  key, keyboard key to look for a keydown event
-  * @param[in]  key_state, current state of keyboard key
-  * @param[in]  past_key_state, state of keyboard key from previous loop
+  * @param[in]  now, current state of keyboard key
+  * @param[in]  past, state of keyboard key from previous loop
   * @retval     1 (True) if keydown event occurs, 0 (False) otherwise
   */
-#define keydown(key, key_state, past_key_state) ( (past_key_state != key_state) && (key_state & key) )
+#define keydown(key, now, past) ( (now & key) && !(past & key) )
 
 
 //云台行为状态机
@@ -385,31 +385,43 @@ static void gimbal_behavour_set(Gimbal_Control_t *gimbal_mode_set)
     }
 		
 		static gimbal_behaviour_e last_gimbal_behaviour = GIMBAL_ZERO_FORCE;	// from line 401
-
-    //开关控制 云台状态																													// if switch down OR c pressed and need to change
-    if (switch_is_down(gimbal_mode_set->gimbal_rc_ctrl->rc.s[ModeChannel]) || ( (last_gimbal_behaviour == GIMBAL_ABSOLUTE_ANGLE) && keydown(CHANGE_MODE_KEY, gimbal_mode_set->gimbal_rc_ctrl->key.v, last_gimbal_behaviour) ))
-    {
-        gimbal_behaviour = GIMBAL_POS_USART;
-    }
-    else if (switch_is_mid(gimbal_mode_set->gimbal_rc_ctrl->rc.s[ModeChannel]))
-    {
-        gimbal_behaviour = GIMBAL_ZERO_FORCE; //NO FORCE
-    }																																					// if switch up OR c pressed and need to change
-    else if (switch_is_up(gimbal_mode_set->gimbal_rc_ctrl->rc.s[ModeChannel]) || ( (last_gimbal_behaviour == GIMBAL_POS_USART) && keydown(CHANGE_MODE_KEY, gimbal_mode_set->gimbal_rc_ctrl->key.v, last_gimbal_behaviour) ))
-    { 
+		static int c_key_pressed = 0;
+		static int v_key_pressed = 0;
+		
+		//开关控制 云台状态
+		if (switch_is_down(gimbal_mode_set->gimbal_rc_ctrl->rc.s[ModeChannel]))
+		{
+				gimbal_behaviour = GIMBAL_POS_USART;
+		}
+		else if (switch_is_mid(gimbal_mode_set->gimbal_rc_ctrl->rc.s[ModeChannel]))
+		{
+				gimbal_behaviour = GIMBAL_ZERO_FORCE; //NO FORCE
+		}
+		else if (switch_is_up(gimbal_mode_set->gimbal_rc_ctrl->rc.s[ModeChannel]))
+		{ 
 				gimbal_behaviour = GIMBAL_ABSOLUTE_ANGLE;
-    }
-		
-		
-		if(keydown(CHANGE_MODE_KEY, gimbal_mode_set->gimbal_rc_ctrl->key.v, last_gimbal_behaviour))
-		{
-			buzzer_on(31, 20000);
 		}
-		else
+
+		
+		if(keydown(CHANGE_MODE_TO_CONTROL_KEY, gimbal_mode_set->gimbal_rc_ctrl->key.v, last_gimbal_behaviour))
 		{
-			buzzer_off();
+				c_key_pressed = 1;
+				v_key_pressed = 0;
+		}
+		else if(keydown(CHANGE_MODE_TO_USART_KEY, gimbal_mode_set->gimbal_rc_ctrl->key.v, last_gimbal_behaviour))
+		{
+				v_key_pressed = 1;
+				c_key_pressed = 0;
 		}
 		
+		if(c_key_pressed)
+		{
+			gimbal_behaviour = GIMBAL_ABSOLUTE_ANGLE;
+		}
+		else if(v_key_pressed)
+		{
+			gimbal_behaviour = GIMBAL_POS_USART;
+		}
 
     if( toe_is_error(DBUSTOE))
     {

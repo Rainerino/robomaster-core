@@ -1,4 +1,4 @@
-/**
+	/**
   ****************************(C) COPYRIGHT 2016 DJI****************************
   * @file       chassis_behaviour.c/h
   * @brief      Implements chassis behaviour tasks.
@@ -89,15 +89,15 @@ static void chassis_no_follow_yaw_control(fp32 *vx_set, fp32 *vy_set, fp32 *wz_s
   * @retval         Return void
   */
 	
-	/**
+/**
   * @brief      Detect a keydown event
   * @author     The Jingler
 	* @param[in]  key, keyboard key to look for a keydown event
-  * @param[in]  key_state, current state of keyboard key
-  * @param[in]  past_key_state, state of keyboard key from previous loop
+  * @param[in]  now, current state of keyboard key
+  * @param[in]  past, state of keyboard key from previous loop
   * @retval     1 (True) if keydown event occurs, 0 (False) otherwise
   */
-#define keydown(key, key_state, past_key_state) ( (past_key_state != key_state) && (key_state & key) )
+#define keydown(key, now, past) ( (now & key) && !(past & key) )
 	
 static void chassis_open_set_control(fp32 *vx_set, fp32 *vy_set, fp32 *wz_set, chassis_move_t *chassis_move_rc_to_vector);
 
@@ -112,20 +112,42 @@ void chassis_behaviour_mode_set(chassis_move_t *chassis_move_mode)
     }
 
 		static chassis_behaviour_e last_chassis_behaviour = CHASSIS_ZERO_FORCE;
+		static int c_key_pressed = 0;
+		static int v_key_pressed = 0;
 		
-    // Chassis behaviour mode determined by RC
-    if (switch_is_mid(chassis_move_mode->chassis_RC->rc.s[MODE_CHANNEL]))
-    {
-        chassis_behaviour_mode = CHASSIS_ZERO_FORCE; 
-    }																																					// if switch down OR c pressed and need to change
-    else if (switch_is_down(chassis_move_mode->chassis_RC->rc.s[MODE_CHANNEL]) || ( (last_chassis_behaviour == GIMBAL_ABSOLUTE_ANGLE) && (chassis_move_mode->chassis_RC->key.v & CHANGE_MODE_KEY) ))
-    {
-        chassis_behaviour_mode = CHASSIS_NO_MOVE; 
-    }																																					// if switch up OR c pressed and need to change
-    else if (switch_is_up(chassis_move_mode->chassis_RC->rc.s[MODE_CHANNEL]) || ( (last_chassis_behaviour == GIMBAL_ABSOLUTE_ANGLE) && (chassis_move_mode->chassis_RC->key.v & CHANGE_MODE_KEY) ))
-    {
-        chassis_behaviour_mode = CHASSIS_INFANTRY_FOLLOW_GIMBAL_YAW;
-    }
+		// Chassis behaviour mode determined by RC
+		if (switch_is_mid(chassis_move_mode->chassis_RC->rc.s[MODE_CHANNEL]))
+		{
+				chassis_behaviour_mode = CHASSIS_ZERO_FORCE; 
+		}
+		else if (switch_is_down(chassis_move_mode->chassis_RC->rc.s[MODE_CHANNEL]))
+		{
+				chassis_behaviour_mode = CHASSIS_ZERO_FORCE; 
+		}
+		else if (switch_is_up(chassis_move_mode->chassis_RC->rc.s[MODE_CHANNEL]))
+		{
+				chassis_behaviour_mode = CHASSIS_INFANTRY_FOLLOW_GIMBAL_YAW;
+		}
+		
+		if(keydown(CHANGE_MODE_TO_CONTROL_KEY, chassis_move_mode->chassis_RC->key.v, last_chassis_behaviour))
+		{
+				c_key_pressed = 1;
+				v_key_pressed = 0;
+		}
+		else if(keydown(CHANGE_MODE_TO_USART_KEY, chassis_move_mode->chassis_RC->key.v, last_chassis_behaviour))
+		{
+				v_key_pressed = 1;
+				c_key_pressed = 0;
+		}
+		
+		if(c_key_pressed)
+		{
+			chassis_behaviour_mode = CHASSIS_INFANTRY_FOLLOW_GIMBAL_YAW;
+		}
+		else if(v_key_pressed)
+		{
+			chassis_behaviour_mode = CHASSIS_ZERO_FORCE;
+		}
 
     // Chassis stays stationery (no move mode) when gimbal is in certain states
 		// Overrides chassis behaviour mode from RC
