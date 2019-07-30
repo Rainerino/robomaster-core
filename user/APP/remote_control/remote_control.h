@@ -56,7 +56,15 @@
 
 // c changes mode to user control mode
 #define CHANGE_MODE_TO_CONTROL_KEY KEY_PRESSED_OFFSET_C
+// v changes mode to USART control mode
 #define CHANGE_MODE_TO_USART_KEY KEY_PRESSED_OFFSET_V
+
+// user override keys for USART control
+#define RESET_KEY KEY_PRESSED_OFFSET_R
+#define TOP_POSITION_KEY KEY_PRESSED_OFFSET_W
+#define LEFT_POSITION_KEY KEY_PRESSED_OFFSET_A
+#define BOTTOM_POSITION_KEY KEY_PRESSED_OFFSET_S
+#define RIGHT_POSITION_KEY KEY_PRESSED_OFFSET_D
 
 
 /* ----------------------- Data Struct ------------------------------------- */

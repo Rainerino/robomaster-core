@@ -498,8 +498,12 @@ static void gimbal_position_based_control (fp32 *yaw, fp32 *pitch, Gimbal_Contro
 
 volatile uint8_t USART_Data = 0;
 volatile int Data_received = 0;
+static int first_activation = 0;
 extern void USART_puts(USART_TypeDef *USARTx, volatile char *str);
 extern void USART_cmd_shoot(void);
+
+static uint16_t key_state_now = 0;
+static uint16_t key_state_past = 0;
 
 // Position based control from USART
 static void gimbal_pos_USART (fp32 *yaw, fp32 *pitch, Gimbal_Control_t *gimbal_control_set)
@@ -508,43 +512,217 @@ static void gimbal_pos_USART (fp32 *yaw, fp32 *pitch, Gimbal_Control_t *gimbal_c
     {
 			return;
     }
-
-    {
-			double yaw_change_intensity = gimbal_control_set->gimbal_yaw_motor.relative_angle;
-			double pitch_change_intensity = gimbal_control_set->gimbal_pitch_motor.relative_angle;
-			static int i = 0;
+		
+			key_state_now = gimbal_control_set->gimbal_rc_ctrl->key.v;
+			static int w_key_pressed = 0;
+			static int a_key_pressed = 0;
+			static int s_key_pressed = 0;
+			static int d_key_pressed = 0;
 			
-			const int N = 4;	// total number of positions
+			static int key_pressed = 0;
+		
+			static double yaw_change_intensity = 0.0;
+			static double pitch_change_intensity = 0.0;
+			static int i = 0;			
+			
+			const int N = 4;	// total number of positions 
 			const int YAW = 0, PITCH = 1;
-			double aim_to[N][2] =
-				{ /* yaw   pit												 _.-0-._			*/
-						{0.0,  0.1},	/* pos 0						/		|	 	\			*/
-						{0.1,  0.0},	/* pos 1					 3----+----1		*/
-						{0.0, -0.1},	/* pos 2						\		| 	/			*/
-						{-0.1, 0.0}		/* pos 3						 `-.2.-`			*/
+			double aim_to[N][2] =		// these positions are relative to the zero point 
+				{ // yaw   pit												 _.-0-._			
+						{0.0, -0.1},	// pos 0						/		|	 				
+						{-0.1, 0.0},	// pos 1					 3----+----1		
+						{0.0,  0.1},	// pos 2						\		| 	/			
+						{0.1,  0.0}		// pos 3						 `-.2.-`			
 				};
-
+			
+			
 			
 			if(Data_received == 1)
 			{
+				yaw_change_intensity = aim_to[USART_Data][YAW];
+				pitch_change_intensity = aim_to[USART_Data][PITCH];
+			}
+
+			if(keydown(TOP_POSITION_KEY, key_state_now, key_state_past))
+			{
+				w_key_pressed = 1;
+				a_key_pressed = 0;
+				s_key_pressed = 0;
+				d_key_pressed = 0;
+				key_pressed = 1;
+			}
+			else if(keydown(RIGHT_POSITION_KEY, key_state_now, key_state_past))
+			{
+				d_key_pressed = 1;
+				a_key_pressed = 0;
+				s_key_pressed = 0;
+				w_key_pressed = 0;
+				key_pressed = 1;
+			}
+			else if(keydown(BOTTOM_POSITION_KEY, key_state_now, key_state_past))
+			{
+				s_key_pressed = 1;
+				a_key_pressed = 0;
+				w_key_pressed = 0;
+				d_key_pressed = 0;
+				key_pressed = 1;
+			}
+			else if(keydown(LEFT_POSITION_KEY, key_state_now, key_state_past))
+			{
+				a_key_pressed = 1;
+				w_key_pressed = 0;
+				s_key_pressed = 0;
+				d_key_pressed = 0;
+				key_pressed = 1;
+			}
+			
+			if(w_key_pressed)
+			{
+				yaw_change_intensity = aim_to[0][YAW];
+				pitch_change_intensity = aim_to[0][PITCH];
+			}
+			else if(d_key_pressed)
+			{
+				yaw_change_intensity = aim_to[1][YAW];
+				pitch_change_intensity = aim_to[1][PITCH];
+			}
+			else if(s_key_pressed)
+			{
+				yaw_change_intensity = aim_to[2][YAW];
+				pitch_change_intensity = aim_to[2][PITCH];
+			}
+			else if(a_key_pressed)
+			{
+				yaw_change_intensity = aim_to[3][YAW];
+				pitch_change_intensity = aim_to[3][PITCH];
+			}
+			
+
+			if(key_pressed)
+			{
+				++i;
+						
+				if(i < 1000)	// aim long enough to shoot
+				{	
+						if(i == 800)	// when to shoot
+						{
+								USART_cmd_shoot();
+						}
+				}
+				else	// reset		
+				{
+						i = 0;
+						Data_received = 0;
+						key_pressed = 0;
+				}
+			}
+
+		
+
+		/*
+		
+    {			
+			double yaw_change_intensity = gimbal_control_set->gimbal_yaw_motor.relative_angle;
+			double pitch_change_intensity = gimbal_control_set->gimbal_pitch_motor.relative_angle;
+			static double yaw_zero_point = 0.0;
+			static double pitch_zero_point = 0.0;
+			static int i = 0;			
+			
+			const int N = 4;	// total number of positions 
+			const int YAW = 0, PITCH = 1;
+			double aim_to[N][2] =		// these positions are relative to the zero point 
+				{ // yaw   pit												 _.-0-._			
+						{0.0, -0.1},	// pos 0						/		|	 	\			
+						{-0.1, 0.0},	// pos 1					 3----+----1		
+						{0.0,  0.1},	// pos 2						\		| 	/			
+						{0.1,  0.0}		// pos 3						 `-.2.-`			
+				};
+			
+			if(first_activation == 0)		// set zero-point as position where gimbal is pointing when this is called the first time 
+			{
+					first_activation = 1;
+					yaw_zero_point = gimbal_control_set->gimbal_yaw_motor.relative_angle;
+					pitch_zero_point = gimbal_control_set->gimbal_pitch_motor.relative_angle;
+			}
+			
+			const uint16_t KEY = TOP_POSITION_KEY | LEFT_POSITION_KEY | BOTTOM_POSITION_KEY | RIGHT_POSITION_KEY;
+			uint16_t key_pressed = KEY & (gimbal_control_set->gimbal_rc_ctrl->key.v);
+			static int user_control = 0;
+			
+			if(key_pressed)
+			{
+					user_control = 1;
+					yaw_change_intensity = gimbal_control_set->gimbal_yaw_motor.relative_angle;
+					pitch_change_intensity = gimbal_control_set->gimbal_pitch_motor.relative_angle;
+			}
+			
+			switch (key_pressed)
+			{
+				case TOP_POSITION_KEY:
+					yaw_change_intensity = aim_to[0][YAW];
+					pitch_change_intensity = aim_to[0][PITCH];
+					break;
+				
+				case RIGHT_POSITION_KEY:
+					yaw_change_intensity = aim_to[1][YAW];
+					pitch_change_intensity = aim_to[1][PITCH];
+					break;
+				
+				case BOTTOM_POSITION_KEY:
+					yaw_change_intensity = aim_to[2][YAW];
+					pitch_change_intensity = aim_to[2][PITCH];
+					break;
+				
+				case LEFT_POSITION_KEY:
+					yaw_change_intensity = aim_to[3][YAW];
+					pitch_change_intensity = aim_to[3][PITCH];
+					break;
+				
+				default:
+					break;
+			}
+			
+			if(user_control)
+			{
 					++i;
-					
-					if(i < 1000)	// aim long enough to shoot
-					{
-							yaw_change_intensity = aim_to[USART_Data][YAW];
-							pitch_change_intensity = aim_to[USART_Data][PITCH];
 							
+					if(i < 1000)	// aim long enough to shoot
+					{	
 							if(i == 800)	// when to shoot
 							{
-								USART_cmd_shoot();
+									//USART_cmd_shoot();
 							}
 					}
 					else	// reset		
 					{
-							Data_received = 0;
 							i = 0;
 					}
 			}
+			else
+			{
+					if(Data_received == 1)
+					{
+							++i;
+							
+							if(i < 1000)	// aim long enough to shoot
+							{
+									yaw_change_intensity = aim_to[USART_Data][YAW];
+									pitch_change_intensity = aim_to[USART_Data][PITCH];
+									
+									if(i == 800)	// when to shoot
+									{
+											//USART_cmd_shoot();
+									}
+							}
+							else	// reset		
+							{
+									Data_received = 0;
+									i = 0;
+							}
+					}
+			}
+			
+			*/
 			
 			/*
 			// |x|x|x|x|x|x|x|, data received from USART				0b1010011 & 0001111
@@ -617,13 +795,16 @@ static void gimbal_pos_USART (fp32 *yaw, fp32 *pitch, Gimbal_Control_t *gimbal_c
     }
 			*/
 			
-			*yaw = (yaw_change_intensity - gimbal_control_set->gimbal_yaw_motor.relative_angle) * 0.005; 
+			/*
+			*yaw = (yaw_zero_point + yaw_change_intensity - gimbal_control_set->gimbal_yaw_motor.relative_angle) * 0.005;
+			*pitch = (pitch_zero_point + pitch_change_intensity - gimbal_control_set->gimbal_pitch_motor.relative_angle) * 0.005;
+			*/
+			
+			*yaw = (yaw_change_intensity - gimbal_control_set->gimbal_yaw_motor.relative_angle) * 0.005;
 			*pitch = (pitch_change_intensity - gimbal_control_set->gimbal_pitch_motor.relative_angle) * 0.005;
 			
-			while(USART_GetFlagStatus(USART6, USART_FLAG_TC) == RESET);
-			USART_SendData(USART6, 1);
+			
 
-    }
 }
 
 

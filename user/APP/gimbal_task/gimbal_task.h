@@ -81,7 +81,7 @@
 #define TurnSpeed 0.04f
 #define PositionSpeed 0.02f
 //测试按键尚未使用
-#define TestKeyBoard KEY_PRESSED_OFFSET_R
+// #define TestKeyBoard KEY_PRESSED_OFFSET_R		// we use R for a different purpose
 //遥控器输入死区，因为遥控器存在差异，摇杆在中间，其值不一定为零
 #define RC_deadband 10
 
