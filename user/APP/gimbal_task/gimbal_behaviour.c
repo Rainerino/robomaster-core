@@ -322,6 +322,15 @@ bool_t gimbal_cmd_to_shoot_stop(void)
         return 0;
     }
 }
+
+static int first_activation = 0; // all of these are for user override of USART aiming
+static int w_key_pressed = 0;
+static int a_key_pressed = 0;
+static int s_key_pressed = 0;
+static int d_key_pressed = 0;
+static double yaw_change_intensity = 0.0;
+static double pitch_change_intensity = 0.0;
+
 /**
   * @brief          云台行为状态机设置，因为在cali等模式下使用了return，故而再用了一个函数
   * @author         RM
@@ -387,6 +396,7 @@ static void gimbal_behavour_set(Gimbal_Control_t *gimbal_mode_set)
 		static gimbal_behaviour_e last_gimbal_behaviour = GIMBAL_ZERO_FORCE;	// from line 401
 		static int c_key_pressed = 0;
 		static int v_key_pressed = 0;
+		static int x_key_pressed = 0;
 		
 		//开关控制 云台状态
 		if (switch_is_down(gimbal_mode_set->gimbal_rc_ctrl->rc.s[ModeChannel]))
@@ -407,11 +417,46 @@ static void gimbal_behavour_set(Gimbal_Control_t *gimbal_mode_set)
 		{
 				c_key_pressed = 1;
 				v_key_pressed = 0;
+				x_key_pressed = 0;
+			
+				first_activation = 0;
+				w_key_pressed = 0;
+				a_key_pressed = 0;
+				s_key_pressed = 0;
+				d_key_pressed = 0;
+			
+				yaw_change_intensity = 0.0;
+				pitch_change_intensity = 0.0;
 		}
 		else if(keydown(CHANGE_MODE_TO_USART_KEY, gimbal_mode_set->gimbal_rc_ctrl->key.v, last_gimbal_behaviour))
 		{
 				v_key_pressed = 1;
 				c_key_pressed = 0;
+				x_key_pressed = 0;
+			
+				first_activation = 0;
+				w_key_pressed = 0;
+				a_key_pressed = 0;
+				s_key_pressed = 0;
+				d_key_pressed = 0;
+			
+				yaw_change_intensity = 0.0;
+				pitch_change_intensity = 0.0;
+		}
+		else if(keydown(CHANGE_MODE_TO_AIM_KEY, gimbal_mode_set->gimbal_rc_ctrl->key.v, last_gimbal_behaviour))
+		{
+				x_key_pressed = 1;
+				c_key_pressed = 0;
+				v_key_pressed = 0;
+			
+				first_activation = 0;
+				w_key_pressed = 0;
+				a_key_pressed = 0;
+				s_key_pressed = 0;
+				d_key_pressed = 0;
+			
+				yaw_change_intensity = 0.0;
+				pitch_change_intensity = 0.0;
 		}
 		
 		if(c_key_pressed)
@@ -421,6 +466,10 @@ static void gimbal_behavour_set(Gimbal_Control_t *gimbal_mode_set)
 		else if(v_key_pressed)
 		{
 			gimbal_behaviour = GIMBAL_POS_USART;
+		}
+		else if(x_key_pressed)
+		{
+			gimbal_behaviour = GIMBAL_ABSOLUTE_ANGLE;
 		}
 
     if( toe_is_error(DBUSTOE))
@@ -498,7 +547,6 @@ static void gimbal_position_based_control (fp32 *yaw, fp32 *pitch, Gimbal_Contro
 
 volatile uint8_t USART_Data = 0;
 volatile int Data_received = 0;
-static int first_activation = 0;
 extern void USART_puts(USART_TypeDef *USARTx, volatile char *str);
 extern void USART_cmd_shoot(void);
 
@@ -514,17 +562,14 @@ static void gimbal_pos_USART (fp32 *yaw, fp32 *pitch, Gimbal_Control_t *gimbal_c
     }
 		
 			key_state_now = gimbal_control_set->gimbal_rc_ctrl->key.v;
-			static int w_key_pressed = 0;
-			static int a_key_pressed = 0;
-			static int s_key_pressed = 0;
-			static int d_key_pressed = 0;
 			
 			static int key_pressed = 0;
-		
-			static double yaw_change_intensity = 0.0;
-			static double pitch_change_intensity = 0.0;
+			
 			static int i = 0;			
 			
+			static double yaw_zero_point = 0.0;
+			static double pitch_zero_point = 0.0;
+		
 			const int N = 4;	// total number of positions 
 			const int YAW = 0, PITCH = 1;
 			double aim_to[N][2] =		// these positions are relative to the zero point 
@@ -535,7 +580,12 @@ static void gimbal_pos_USART (fp32 *yaw, fp32 *pitch, Gimbal_Control_t *gimbal_c
 						{0.1,  0.0}		// pos 3						 `-.2.-`			
 				};
 			
-			
+			if(first_activation == 0)		// set zero-point as position where gimbal is pointing when this is called the first time 
+			{
+					first_activation = 1;
+					yaw_zero_point = gimbal_control_set->gimbal_yaw_motor.relative_angle;
+					pitch_zero_point = gimbal_control_set->gimbal_pitch_motor.relative_angle;
+			}
 			
 			if(Data_received == 1)
 			{
@@ -598,7 +648,7 @@ static void gimbal_pos_USART (fp32 *yaw, fp32 *pitch, Gimbal_Control_t *gimbal_c
 			}
 			
 
-			if(key_pressed)
+			if(key_pressed || Data_received)
 			{
 				++i;
 						
@@ -800,8 +850,8 @@ static void gimbal_pos_USART (fp32 *yaw, fp32 *pitch, Gimbal_Control_t *gimbal_c
 			*pitch = (pitch_zero_point + pitch_change_intensity - gimbal_control_set->gimbal_pitch_motor.relative_angle) * 0.005;
 			*/
 			
-			*yaw = (yaw_change_intensity - gimbal_control_set->gimbal_yaw_motor.relative_angle) * 0.005;
-			*pitch = (pitch_change_intensity - gimbal_control_set->gimbal_pitch_motor.relative_angle) * 0.005;
+			*yaw = (yaw_change_intensity - gimbal_control_set->gimbal_yaw_motor.relative_angle + yaw_zero_point) * 0.005;
+			*pitch = (pitch_change_intensity - gimbal_control_set->gimbal_pitch_motor.relative_angle + pitch_zero_point) * 0.005;
 			
 			
 

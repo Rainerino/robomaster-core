@@ -114,6 +114,7 @@ void chassis_behaviour_mode_set(chassis_move_t *chassis_move_mode)
 		static chassis_behaviour_e last_chassis_behaviour = CHASSIS_ZERO_FORCE;
 		static int c_key_pressed = 0;
 		static int v_key_pressed = 0;
+		static int x_key_pressed = 0;
 		
 		// Chassis behaviour mode determined by RC
 		if (switch_is_mid(chassis_move_mode->chassis_RC->rc.s[MODE_CHANNEL]))
@@ -133,11 +134,19 @@ void chassis_behaviour_mode_set(chassis_move_t *chassis_move_mode)
 		{
 				c_key_pressed = 1;
 				v_key_pressed = 0;
+				x_key_pressed = 0;
 		}
 		else if(keydown(CHANGE_MODE_TO_USART_KEY, chassis_move_mode->chassis_RC->key.v, last_chassis_behaviour))
 		{
 				v_key_pressed = 1;
 				c_key_pressed = 0;
+				x_key_pressed = 0;
+		}
+		else if(keydown(CHANGE_MODE_TO_AIM_KEY, chassis_move_mode->chassis_RC->key.v, last_chassis_behaviour))
+		{
+				x_key_pressed = 1;
+				c_key_pressed = 0;
+				v_key_pressed = 0;
 		}
 		
 		if(c_key_pressed)
@@ -145,6 +154,10 @@ void chassis_behaviour_mode_set(chassis_move_t *chassis_move_mode)
 			chassis_behaviour_mode = CHASSIS_INFANTRY_FOLLOW_GIMBAL_YAW;
 		}
 		else if(v_key_pressed)
+		{
+			chassis_behaviour_mode = CHASSIS_ZERO_FORCE;
+		}
+		else if(x_key_pressed)
 		{
 			chassis_behaviour_mode = CHASSIS_ZERO_FORCE;
 		}
