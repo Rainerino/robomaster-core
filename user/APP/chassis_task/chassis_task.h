@@ -61,9 +61,9 @@
 //底盘任务控制频率，尚未使用这个宏
 #define CHASSIS_CONTROL_FREQUENCE 500.0f
 //底盘3508最大can发送电流值
-#define MAX_MOTOR_CAN_CURRENT 3500.0f
+#define MAX_MOTOR_CAN_CURRENT 3200.0f //16000 originally
 //底盘摇摆按键
-#define SWING_KEY KEY_PRESSED_OFFSET_CTRL
+#define SWING_KEY KEY_PRESSED_OFFSET_SHIFT
 //底盘前后左右控制按键
 #define CHASSIS_FRONT_KEY KEY_PRESSED_OFFSET_W
 #define CHASSIS_BACK_KEY KEY_PRESSED_OFFSET_S
@@ -83,7 +83,7 @@
 #define NORMAL_MAX_CHASSIS_SPEED_Y 2.9f
 //底盘设置旋转速度，设置前后左右轮不同设定速度的比例分权 0为在几何中心，不需要补偿
 // scaling front and back wheel speed for turning; 0 means center of mass is also the center of rotation and no compensation necessary
-#define CHASSIS_WZ_SET_SCALE 0.1f
+#define CHASSIS_WZ_SET_SCALE 0.0f //0 
 
 //摇摆原地不动摇摆最大角度(rad)
 #define SWING_NO_MOVE_ANGLE 0.7f

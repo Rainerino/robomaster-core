@@ -253,20 +253,20 @@ static void Shoot_Set_Mode(void)
         shoot_mode = SHOOT_STOP; // Stop shooting motors completely
     }
 
-    //处于中档， 可以使用键盘开启摩擦轮
-    if (switch_is_mid(shoot_rc->rc.s[Shoot_RC_Channel]) && (shoot_rc->key.v & SHOOT_ON_KEYBOARD) && shoot_mode == SHOOT_STOP)
+    //处于上档， 可以使用键盘开启摩擦轮
+    if (switch_is_up(shoot_rc->rc.s[Shoot_RC_Channel]) && (shoot_rc->key.v & SHOOT_ON_KEYBOARD) && shoot_mode == SHOOT_STOP)
     {
         shoot_mode = SHOOT_READY;
     }
-		//处于中档， 可以使用键盘关闭摩擦轮
-    else if (switch_is_mid(shoot_rc->rc.s[Shoot_RC_Channel]) && (shoot_rc->key.v & SHOOT_OFF_KEYBOARD) && shoot_mode == SHOOT_READY)
+		//处于上档， 可以使用键盘关闭摩擦轮
+    else if (switch_is_up(shoot_rc->rc.s[Shoot_RC_Channel]) && (shoot_rc->key.v & SHOOT_OFF_KEYBOARD) && shoot_mode == SHOOT_READY)
     {
         shoot_mode = SHOOT_STOP;
     }
 		
 		
-		// Allows for USART commanding shoot when switch is in mid position
-		if (switch_is_mid(shoot_rc->rc.s[Shoot_RC_Channel]) && USART_CMD_SHOOT) {
+		// Allows for USART commanding shoot when switch is in down position
+		if (switch_is_down(shoot_rc->rc.s[Shoot_RC_Channel]) && USART_CMD_SHOOT) {
 				shoot_mode = SHOOT_BULLET;
 				trigger_motor.last_butter_count = trigger_motor.BulletShootCnt;
 		}

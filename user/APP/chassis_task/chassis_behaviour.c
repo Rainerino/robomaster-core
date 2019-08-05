@@ -119,11 +119,11 @@ void chassis_behaviour_mode_set(chassis_move_t *chassis_move_mode)
 		// Chassis behaviour mode determined by RC
 		if (switch_is_mid(chassis_move_mode->chassis_RC->rc.s[MODE_CHANNEL]))
 		{
-				chassis_behaviour_mode = CHASSIS_ZERO_FORCE; 
+				chassis_behaviour_mode = CHASSIS_NO_FOLLOW_YAW; 
 		}
 		else if (switch_is_down(chassis_move_mode->chassis_RC->rc.s[MODE_CHANNEL]))
 		{
-				chassis_behaviour_mode = CHASSIS_ZERO_FORCE; 
+				chassis_behaviour_mode = CHASSIS_NO_MOVE; 
 		}
 		else if (switch_is_up(chassis_move_mode->chassis_RC->rc.s[MODE_CHANNEL]))
 		{

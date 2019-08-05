@@ -411,8 +411,8 @@ static void gimbal_behavour_set(Gimbal_Control_t *gimbal_mode_set)
 		{ 
 				gimbal_behaviour = GIMBAL_ABSOLUTE_ANGLE;
 		}
-
 		
+		/*
 		if(keydown(CHANGE_MODE_TO_CONTROL_KEY, gimbal_mode_set->gimbal_rc_ctrl->key.v, last_gimbal_behaviour))
 		{
 				c_key_pressed = 1;
@@ -470,8 +470,8 @@ static void gimbal_behavour_set(Gimbal_Control_t *gimbal_mode_set)
 		else if(x_key_pressed)
 		{
 			gimbal_behaviour = GIMBAL_ABSOLUTE_ANGLE;
-		}
-
+		}*/
+	  
     if( toe_is_error(DBUSTOE))
     {
 
@@ -487,6 +487,10 @@ static void gimbal_behavour_set(Gimbal_Control_t *gimbal_mode_set)
         }
 				// Ensures the gimbal initialized to mid before entering postion-based setting
 				else if (last_gimbal_behaviour != GIMBAL_POSITION_BASED && last_gimbal_behaviour != GIMBAL_INIT && gimbal_behaviour == GIMBAL_POSITION_BASED)
+        {
+            gimbal_behaviour = GIMBAL_INIT;
+        }
+				else if (last_gimbal_behaviour != GIMBAL_ABSOLUTE_ANGLE && last_gimbal_behaviour != GIMBAL_INIT && gimbal_behaviour == GIMBAL_ABSOLUTE_ANGLE)
         {
             gimbal_behaviour = GIMBAL_INIT;
         }
@@ -553,6 +557,7 @@ extern void USART_cmd_shoot(void);
 static uint16_t key_state_now = 0;
 static uint16_t key_state_past = 0;
 
+
 // Position based control from USART
 static void gimbal_pos_USART (fp32 *yaw, fp32 *pitch, Gimbal_Control_t *gimbal_control_set)
 {
@@ -572,12 +577,17 @@ static void gimbal_pos_USART (fp32 *yaw, fp32 *pitch, Gimbal_Control_t *gimbal_c
 		
 			const int N = 4;	// total number of positions 
 			const int YAW = 0, PITCH = 1;
+			const float AIM_UP = -0.1, 
+									AIM_LEFT = 0.1, 
+									AIM_RIGHT = -0.1, 
+									AIM_DOWN = 0.1;
+			
 			double aim_to[N][2] =		// these positions are relative to the zero point 
-				{ // yaw   pit												 _.-0-._			
-						{0.0, -0.1},	// pos 0						/		|	 				
-						{-0.1, 0.0},	// pos 1					 3----+----1		
-						{0.0,  0.1},	// pos 2						\		| 	/			
-						{0.1,  0.0}		// pos 3						 `-.2.-`			
+				{ // yaw   pit												 			_.-0-._			
+						{0.0, AIM_UP},	// pos 0							 /	 |	 \ 
+						{AIM_RIGHT, 0.0},	// pos 1					  3----+----1		
+						{0.0,  AIM_DOWN},	// pos 2						 \	 |   /			
+						{AIM_LEFT,  0.0}		// pos 3						`-.2.-`			
 				};
 			
 			if(first_activation == 0)		// set zero-point as position where gimbal is pointing when this is called the first time 
