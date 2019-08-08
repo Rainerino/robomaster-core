@@ -34,7 +34,7 @@
 
 //yaw 速度环 PID参数以及 PID最大输出，积分输出
 #define YAW_SPEED_PID_KP 2200.0f
-#define YAW_SPEED_PID_KI 20.0f
+#define YAW_SPEED_PID_KI 0.0f
 #define YAW_SPEED_PID_KD 0.0f
 #define YAW_SPEED_PID_MAX_OUT 30000.0f
 #define YAW_SPEED_PID_MAX_IOUT 5000.0f
@@ -93,7 +93,7 @@
 #define Pitch_RC_SCALE -0.000793f
 //yaw,pitch角度和鼠标输入的比例
 #define Yaw_Mouse_Sen 0.00005f
-#define Pitch_Mouse_Sen 0.00015f
+#define Pitch_Mouse_Sen 0.000015f //0.00015
 //云台编码器控制时候使用的比例
 #define Yaw_Encoder_Sen 0.01f
 #define Pitch_Encoder_Sen 0.01f
@@ -121,7 +121,7 @@
 #define GIMBAL_INIT_PITCH_SPEED 0.004f
 #define GIMBAL_INIT_YAW_SPEED   0.005f
 #define INIT_YAW_SET 0.0f
-#define INIT_PITCH_SET 0.0f
+#define INIT_PITCH_SET -0.2f //0.0 is mid, -0.2 to be at armor height
 
 //云台校准中值的时候，发送原始电流值，以及堵转时间，通过陀螺仪判断堵转
 #define GIMBAL_CALI_MOTOR_SET 8000

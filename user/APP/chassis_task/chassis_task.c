@@ -152,7 +152,8 @@ static void chassis_init(chassis_move_t *chassis_move_init)
     }
     //初始化旋转PID
 	// Initialize rotational PID
-    PID_Init(&chassis_move_init->chassis_angle_pid, PID_POSITION, chassis_yaw_pid, CHASSIS_FOLLOW_GIMBAL_PID_MAX_OUT, CHASSIS_FOLLOW_GIMBAL_PID_MAX_IOUT);
+	// This TEMPORARILY solves the spinning problem, not ideal, but works since I am not using chassis follow gimbal in smart firing
+  // PID_Init(&chassis_move_init->chassis_angle_pid, PID_POSITION, chassis_yaw_pid, CHASSIS_FOLLOW_GIMBAL_PID_MAX_OUT, CHASSIS_FOLLOW_GIMBAL_PID_MAX_IOUT);
     
 	//用一阶滤波代替斜波函数生成
 	// Start the first order filter ????

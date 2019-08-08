@@ -405,7 +405,7 @@ static void gimbal_behavour_set(Gimbal_Control_t *gimbal_mode_set)
 		}
 		else if (switch_is_mid(gimbal_mode_set->gimbal_rc_ctrl->rc.s[ModeChannel]))
 		{
-				gimbal_behaviour = GIMBAL_ZERO_FORCE; //NO FORCE
+				gimbal_behaviour = GIMBAL_ABSOLUTE_ANGLE; 
 		}
 		else if (switch_is_up(gimbal_mode_set->gimbal_rc_ctrl->rc.s[ModeChannel]))
 		{ 
@@ -487,10 +487,6 @@ static void gimbal_behavour_set(Gimbal_Control_t *gimbal_mode_set)
         }
 				// Ensures the gimbal initialized to mid before entering postion-based setting
 				else if (last_gimbal_behaviour != GIMBAL_POSITION_BASED && last_gimbal_behaviour != GIMBAL_INIT && gimbal_behaviour == GIMBAL_POSITION_BASED)
-        {
-            gimbal_behaviour = GIMBAL_INIT;
-        }
-				else if (last_gimbal_behaviour != GIMBAL_ABSOLUTE_ANGLE && last_gimbal_behaviour != GIMBAL_INIT && gimbal_behaviour == GIMBAL_ABSOLUTE_ANGLE)
         {
             gimbal_behaviour = GIMBAL_INIT;
         }
@@ -578,9 +574,9 @@ static void gimbal_pos_USART (fp32 *yaw, fp32 *pitch, Gimbal_Control_t *gimbal_c
 			const int N = 4;	// total number of positions 
 			const int YAW = 0, PITCH = 1;
 			const float AIM_UP = -0.1, 
-									AIM_LEFT = 0.1, 
-									AIM_RIGHT = -0.1, 
-									AIM_DOWN = 0.1;
+									AIM_LEFT = 0.11, 
+									AIM_RIGHT = -0.11, 
+									AIM_DOWN = 0.09;
 			
 			double aim_to[N][2] =		// these positions are relative to the zero point 
 				{ // yaw   pit												 			_.-0-._			

@@ -308,7 +308,7 @@ static void chassis_infantry_follow_gimbal_yaw_control(fp32 *vx_set, fp32 *vy_se
     //max_angle is the max parameter for sine
     static fp32 max_angle = SWING_NO_MOVE_ANGLE;
     //add_time determines the rate of change of swing angles, larger add_time means faster swing
-    static fp32 const add_time = PI / 250.0f;
+    static fp32 const add_time = PI / 250.0f; // divide by 250 originally
     
     static uint8_t swing_flag = 0;
 
