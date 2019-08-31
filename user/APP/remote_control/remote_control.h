@@ -53,6 +53,21 @@
 #define KEY_PRESSED_OFFSET_C ((uint16_t)1 << 13)
 #define KEY_PRESSED_OFFSET_V ((uint16_t)1 << 14)
 #define KEY_PRESSED_OFFSET_B ((uint16_t)1 << 15)
+
+// c changes mode to user control mode
+#define CHANGE_MODE_TO_CONTROL_KEY KEY_PRESSED_OFFSET_C
+// v changes mode to USART control mode
+#define CHANGE_MODE_TO_USART_KEY KEY_PRESSED_OFFSET_V
+// v changes mode to USART control mode
+#define CHANGE_MODE_TO_AIM_KEY KEY_PRESSED_OFFSET_X
+
+// user override keys for USART control
+#define TOP_POSITION_KEY KEY_PRESSED_OFFSET_W
+#define LEFT_POSITION_KEY KEY_PRESSED_OFFSET_A
+#define BOTTOM_POSITION_KEY KEY_PRESSED_OFFSET_S
+#define RIGHT_POSITION_KEY KEY_PRESSED_OFFSET_D
+
+
 /* ----------------------- Data Struct ------------------------------------- */
 typedef __packed struct
 {

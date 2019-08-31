@@ -2,7 +2,7 @@
   ****************************(C) COPYRIGHT 2016 DJI****************************
   * @file       chassis_behaviour.c/h
   * @brief      完成底盘行为任务。
-  * @note
+  * @note       
   * @history
   *  Version    Date            Author          Modification
   *  V1.0.0     Dec-26-2018     RM              1. 完成
@@ -26,8 +26,7 @@ typedef enum
   CHASSIS_INFANTRY_FOLLOW_GIMBAL_YAW,  //正常步兵底盘跟随云台
   CHASSIS_ENGINEER_FOLLOW_CHASSIS_YAW, //工程底盘角度控制底盘，由于底盘未有陀螺仪，故而角度是减去云台角度而得到，如果有底盘陀螺仪请更新底盘的yaw，pitch，roll角度
   CHASSIS_NO_FOLLOW_YAW,               //底盘不跟随角度，角度是开环的，但前后左右是有速度环
-  CHASSIS_OPEN,                         //遥控器的值乘以比例直接发送到can总线上
-  CHASSIS_SWIRL
+  CHASSIS_OPEN                         //遥控器的值乘以比例直接发送到can总线上
 } chassis_behaviour_e;
 
 #define CHASSIS_OPEN_RC_SCALE 10 //在chassis_open 模型下，遥控器乘以该比例发送到can上

@@ -34,7 +34,7 @@
 
 //yaw 速度环 PID参数以及 PID最大输出，积分输出
 #define YAW_SPEED_PID_KP 2200.0f
-#define YAW_SPEED_PID_KI 20.0f
+#define YAW_SPEED_PID_KI 0.0f
 #define YAW_SPEED_PID_KD 0.0f
 #define YAW_SPEED_PID_MAX_OUT 30000.0f
 #define YAW_SPEED_PID_MAX_IOUT 5000.0f
@@ -50,7 +50,7 @@
 //yaw 角度环 角度由陀螺仪解算 PID参数以及 PID最大输出，积分输出
 #define YAW_GYRO_ABSOLUTE_PID_KP 10.0f
 #define YAW_GYRO_ABSOLUTE_PID_KI 0.0f
-#define YAW_GYRO_ABSOLUTE_PID_KD 0.3f
+#define YAW_GYRO_ABSOLUTE_PID_KD 0.0f //0.3 
 #define YAW_GYRO_ABSOLUTE_PID_MAX_OUT 10.0f
 #define YAW_GYRO_ABSOLUTE_PID_MAX_IOUT 0.0f
 
@@ -81,7 +81,7 @@
 #define TurnSpeed 0.04f
 #define PositionSpeed 0.02f
 //测试按键尚未使用
-#define TestKeyBoard KEY_PRESSED_OFFSET_R
+// #define TestKeyBoard KEY_PRESSED_OFFSET_R		// we use R for a different purpose
 //遥控器输入死区，因为遥控器存在差异，摇杆在中间，其值不一定为零
 #define RC_deadband 10
 
@@ -93,7 +93,7 @@
 #define Pitch_RC_SCALE -0.000793f
 //yaw,pitch角度和鼠标输入的比例
 #define Yaw_Mouse_Sen 0.00005f
-#define Pitch_Mouse_Sen 0.00015f
+#define Pitch_Mouse_Sen 0.000015f //0.00015
 //云台编码器控制时候使用的比例
 #define Yaw_Encoder_Sen 0.01f
 #define Pitch_Encoder_Sen 0.01f
@@ -121,7 +121,7 @@
 #define GIMBAL_INIT_PITCH_SPEED 0.004f
 #define GIMBAL_INIT_YAW_SPEED   0.005f
 #define INIT_YAW_SET 0.0f
-#define INIT_PITCH_SET 0.0f
+#define INIT_PITCH_SET -0.2f //0.0 is mid, -0.2 to be at armor height
 
 //云台校准中值的时候，发送原始电流值，以及堵转时间，通过陀螺仪判断堵转
 #define GIMBAL_CALI_MOTOR_SET 8000

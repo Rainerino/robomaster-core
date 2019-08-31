@@ -14,6 +14,7 @@
   @endverbatim
   ****************************(C) COPYRIGHT 2016 DJI****************************
   */
+
 #include "main.h"
 
 #include "stm32f4xx.h"
@@ -49,7 +50,6 @@ int main(void)
     delay_ms(100);
     startTast();
     vTaskStartScheduler();
-		
     while (1)
     {
         ;
@@ -58,8 +58,6 @@ int main(void)
 
 //四个24v 输出 依次开启 间隔 709us
 #define POWER_CTRL_ONE_BY_ONE_TIME 709
-
-extern void USART_setup(void);
 
 void BSP_init(void)
 {

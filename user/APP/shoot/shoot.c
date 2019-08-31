@@ -53,6 +53,7 @@ static shoot_mode_e shoot_mode = SHOOT_STOP; //射击状态机
 
 extern void getTriggerMotorMeasure(motor_measure_t *motor);
 
+static int USART_CMD_SHOOT = 0;
 
 
 /**
@@ -140,6 +141,7 @@ int16_t shoot_control_loop(void)
     {
         trigger_motor_pid.max_out = TRIGGER_BULLET_PID_MAX_OUT;
         trigger_motor_pid.max_iout = TRIGGER_BULLET_PID_MAX_IOUT;
+				USART_CMD_SHOOT = 0;
         shoot_bullet_control();
     }
     //发射完成状态控制
@@ -222,22 +224,12 @@ int16_t shoot_control_loop(void)
     return shoot_CAN_Set_Current;
 }
 
-extern volatile int USART_Data;
+extern volatile uint8_t USART_Data;
 
-// Checks whether USART communicates to shoot
-bool_t USART_cmd_shoot(void)
+// sets flag when USART communicates to shoot
+void USART_cmd_shoot(void)
 {
-    int USART_data_yaw = USART_Data / 100;
-		int USART_data_pitch = USART_Data % 100;
-	
-		if ( switch_is_mid(shoot_rc->rc.s[GIMBAL_ModeChannel]) && USART_data_yaw < 55 && USART_data_yaw > 45 && USART_data_pitch < 55 && USART_data_pitch > 45)
-    {
-       return 1;
-    }
-    else
-    {
-       return 0;
-    }
+		USART_CMD_SHOOT = 1;
 }
 
 
@@ -261,20 +253,20 @@ static void Shoot_Set_Mode(void)
         shoot_mode = SHOOT_STOP; // Stop shooting motors completely
     }
 
-    //处于中档， 可以使用键盘开启摩擦轮
-    if (switch_is_mid(shoot_rc->rc.s[Shoot_RC_Channel]) && (shoot_rc->key.v & SHOOT_ON_KEYBOARD) && shoot_mode == SHOOT_STOP)
+    //处于上档， 可以使用键盘开启摩擦轮
+    if (switch_is_up(shoot_rc->rc.s[Shoot_RC_Channel]) && (shoot_rc->key.v & SHOOT_ON_KEYBOARD) && shoot_mode == SHOOT_STOP)
     {
         shoot_mode = SHOOT_READY;
     }
-		//处于中档， 可以使用键盘关闭摩擦轮
-    else if (switch_is_mid(shoot_rc->rc.s[Shoot_RC_Channel]) && (shoot_rc->key.v & SHOOT_OFF_KEYBOARD) && shoot_mode == SHOOT_READY)
+		//处于上档， 可以使用键盘关闭摩擦轮
+    else if (switch_is_up(shoot_rc->rc.s[Shoot_RC_Channel]) && (shoot_rc->key.v & SHOOT_OFF_KEYBOARD) && shoot_mode == SHOOT_READY)
     {
         shoot_mode = SHOOT_STOP;
     }
 		
 		
-		// Allows for USART commanding shoot when switch is in middle position
-		if (switch_is_mid(shoot_rc->rc.s[Shoot_RC_Channel]) && USART_cmd_shoot()) {
+		// Allows for USART commanding shoot when switch is in down position
+		if (switch_is_down(shoot_rc->rc.s[Shoot_RC_Channel]) && USART_CMD_SHOOT) {
 				shoot_mode = SHOOT_BULLET;
 				trigger_motor.last_butter_count = trigger_motor.BulletShootCnt;
 		}

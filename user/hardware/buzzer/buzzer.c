@@ -1,5 +1,4 @@
 #include "buzzer.h"
-
 #include "stm32f4xx.h"
 
 void buzzer_init(uint16_t arr, uint16_t psc)
